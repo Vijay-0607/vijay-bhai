@@ -1,0 +1,43 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --primary: #1E5E3A;
+    --primary-hover: #16472C;
+    --secondary: #E8A317;
+    --secondary-hover: #C98B10;
+    --background: #F4F8F2;
+    --foreground: #17261C;
+    --card: #FFFFFF;
+    --card-foreground: #17261C;
+    --border: #E2EADF;
+    --muted: #6B7B6E;
+    --muted-bg: #EAEFE7;
+  }
+
+  .dark {
+    --primary: #2ECC71;
+    --primary-hover: #27AE60;
+    --secondary: #F1C40F;
+    --secondary-hover: #D4AC0D;
+    --background: #0E1712;
+    --foreground: #ECF3ED;
+    --card: #15221A;
+    --card-foreground: #ECF3ED;
+    --border: #223528;
+    --muted: #95A599;
+    --muted-bg: #1B2B21;
+  }
+
+  * {
+    border-color: var(--border);
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+}

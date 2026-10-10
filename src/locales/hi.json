@@ -1,0 +1,117 @@
+{
+  "_meta": {
+    "notice": "Marked for native-speaker review"
+  },
+  "app": {
+    "title": "मंडीमैच (MandiMatch)",
+    "tagline": "कटाई से पहले ही खरीदार और भाव तय करें।",
+    "demoBadge": "डेमो प्रोटोटाइप",
+    "demoDisclaimer": "प्रदर्शन के लिए सिम्युलेटेड प्रोटोटाइप। कोई वास्तविक वित्तीय लेन-देन या सरकारी लाइव डेटा नहीं।"
+  },
+  "nav": {
+    "home": "होम",
+    "dashboard": "डैशबोर्ड",
+    "matches": "स्मार्ट मैच",
+    "sell": "फसल बेचें",
+    "buy": "खरीदार की मांग",
+    "prices": "फसल के भाव",
+    "notifications": "सूचनाएं",
+    "profile": "प्रोफ़ाइल",
+    "login": "लॉग इन",
+    "signup": "साइन अप",
+    "logout": "लॉग आउट"
+  },
+  "roles": {
+    "farmer": "किसान",
+    "buyer": "खरीदार",
+    "fpo": "एफपीओ (किसान उत्पादक संगठन)"
+  },
+  "crops": {
+    "Tomato": "टमाटर",
+    "Maize": "मक्का",
+    "Onion": "प्याज",
+    "Green chilli": "हरी मिर्च"
+  },
+  "status": {
+    "pending": "लंबित",
+    "negotiating": "बातचीत जारी",
+    "confirmed": "पुष्टि हो गई",
+    "completed": "पूर्ण",
+    "rejected": "अस्वीकृत"
+  },
+  "auth": {
+    "loginTitle": "मंडीमैच में आपका स्वागत है",
+    "loginSubtitle": "अपने फसल पूर्व बाज़ार डैशबोर्ड तक पहुँचें",
+    "emailOrPhone": "ईमेल या मोबाइल नंबर",
+    "password": "पासवर्ड",
+    "rememberMe": "मुझे याद रखें",
+    "forgotPassword": "पासवर्ड भूल गए?",
+    "loginButton": "साइन इन करें",
+    "noAccount": "खाता नहीं है?",
+    "signUpHere": "नया खाता बनाएं",
+    "quickDemo": "एक-क्लिक डेमो लॉगिन",
+    "demoNotice": "डेमो मोड — कोई वास्तविक खाता या लेन-देन नहीं",
+    "signupTitle": "मंडीमैच खाता बनाएं",
+    "signupSubtitle": "किसानों और खरीदारों से सीधे जुड़ें",
+    "fullName": "पूरा नाम",
+    "confirmPassword": "पासवर्ड की पुष्टि करें",
+    "accountType": "खाता प्रकार चुनें",
+    "district": "ज़िला",
+    "preferredLanguage": "पसंदीदा भाषा",
+    "termsAgree": "मैं डेमो नियमों और शर्तों से सहमत हूँ",
+    "createAccount": "खाता बनाएं",
+    "haveAccount": "क्या आपके पास पहले से खाता है?",
+    "forgotTitle": "डेमो पासवर्ड रीसेट करें",
+    "forgotSubtitle": "सत्यापन लिंक पाने के लिए अपना ईमेल या फ़ोन दर्ज करें",
+    "sendReset": "रीसेट लिंक भेजें",
+    "resetSent": "डेमो रीसेट लिंक तैयार किया गया! ध्यान दें: एसएमएस और ईमेल डिलीवरी सिम्युलेटेड है।"
+  },
+  "dashboard": {
+    "overview": "बाज़ार अवलोकन",
+    "totalListings": "कुल फसल लिस्टिंग",
+    "activeMatches": "सक्रिय मैच",
+    "pendingOffers": "लंबित प्रस्ताव",
+    "confirmedDeals": "पुष्ट सौदे",
+    "totalDealValue": "कुल सौदा मूल्य",
+    "platformCommission": "अनुमानित कमीशन (2.5%)",
+    "recentActivity": "हाल की गतिविधि",
+    "commissionCalculator": "प्लेटफ़ॉर्म कमीशन कैलकुलेटर",
+    "dealsByCrop": "फसल अनुसार सौदे",
+    "monthlyCommission": "संचयी अनुमानित कमीशन",
+    "quickActions": "त्वरित क्रियाएँ",
+    "fpoManagedFarmers": "एफपीओ में पंजीकृत किसान",
+    "fpoTotalQuantity": "एफपीओ की कुल मात्रा"
+  },
+  "actions": {
+    "addListing": "फसल लिस्टिंग जोड़ें",
+    "createDemand": "खरीदार की मांग दर्ज करें",
+    "sendOffer": "प्रस्ताव भेजें",
+    "counterOffer": "जवाबी प्रस्ताव दें",
+    "acceptOffer": "प्रस्ताव स्वीकार करें",
+    "rejectOffer": "प्रस्ताव अस्वीकार करें",
+    "markCompleted": "सौदा पूर्ण मार्क करें",
+    "withdrawOffer": "प्रस्ताव वापस लें",
+    "edit": "संपादित करें",
+    "delete": "हटाएं",
+    "cancel": "रद्द करें",
+    "submit": "जमा करें",
+    "save": "सहेजें",
+    "filter": "फ़िल्टर करें",
+    "viewProfile": "प्रोफ़ाइल देखें"
+  },
+  "common": {
+    "quintal": "क्विंटल",
+    "quintals": "क्विंटल",
+    "rupees": "₹",
+    "perQuintal": "/ क्विंटल",
+    "date": "दिनांक",
+    "quantity": "मात्रा",
+    "price": "भाव",
+    "suggestedPrice": "सुझाया गया भाव",
+    "benchmark": "मंडी बेंचमार्क",
+    "matchScore": "मैच स्कोर",
+    "fair": "उचित भाव",
+    "low": "मंडी से कम",
+    "high": "मंडी से अधिक"
+  }
+}

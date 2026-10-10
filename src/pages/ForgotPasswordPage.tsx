@@ -1,0 +1,2 @@
+import { Link } from 'react-router-dom';
+export default function ForgotPasswordPage() { return <div className="mx-auto max-w-lg px-5 py-16"><h1 className="text-3xl font-bold">Password help</h1><p className="mt-3 text-zinc-600 dark:text-zinc-400">This is a local demo and does not use passwords. Sign in with your registered email or use one-click demo access.</p><Link to="/login" className="mt-6 inline-flex rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white">Back to sign in</Link></div>; }

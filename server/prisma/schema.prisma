@@ -1,0 +1,383 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  FARMER
+  BUYER
+  FPO
+  ADMIN
+}
+
+enum Language {
+  EN
+  HI
+  KN
+}
+
+enum CropType {
+  Tomato
+  Maize
+  Onion
+  Green_chilli
+}
+
+enum ListingStatus {
+  ACTIVE
+  PARTIALLY_RESERVED
+  RESERVED
+  COMPLETED
+  CANCELLED
+}
+
+enum DemandStatus {
+  ACTIVE
+  PARTIALLY_FILLED
+  FULFILLED
+  CANCELLED
+}
+
+enum OfferStatus {
+  PENDING
+  NEGOTIATING
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum DealStatus {
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum PriceSourceType {
+  DEMO
+  VERIFIED_EXTERNAL
+}
+
+enum AlertCondition {
+  ABOVE
+  BELOW
+}
+
+// ─── User ────────────────────────────────────────────────────────────────────
+
+model User {
+  id                  String   @id @default(uuid())
+  name                String
+  email               String?  @unique
+  phone               String?  @unique
+  passwordHash        String
+  role                UserRole
+  district            String
+  preferredLanguage   Language @default(EN)
+  profileDescription  String?
+  rating              Float    @default(5.0)
+  completedDealsCount Int      @default(0)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  // Password reset
+  passwordResetToken     String?   @unique
+  passwordResetExpiresAt DateTime?
+
+  // Refresh token (stored as hash for invalidation)
+  refreshTokenHash String?
+
+  // Relations
+  listings      Listing[]
+  demands       Demand[]
+  offersAsFarmer Offer[]  @relation("OfferFarmer")
+  offersAsBuyer  Offer[]  @relation("OfferBuyer")
+  dealsAsFarmer  Deal[]   @relation("DealFarmer")
+  dealsAsBuyer   Deal[]   @relation("DealBuyer")
+  notifications  Notification[]
+  priceAlerts    PriceAlert[]
+  fpoOwned       FPO?     @relation("FPOOwner")
+  fpoMemberships FPOMembership[]
+
+  @@index([email])
+  @@index([phone])
+  @@index([role])
+}
+
+// ─── FPO ─────────────────────────────────────────────────────────────────────
+
+model FPO {
+  id               String   @id @default(uuid())
+  ownerUserId      String   @unique
+  organizationName String
+  district         String
+  description      String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  owner   User            @relation("FPOOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
+  members FPOMembership[]
+
+  @@index([district])
+}
+
+model FPOMembership {
+  id        String   @id @default(uuid())
+  fpoId     String
+  userId    String
+  role      String   @default("MEMBER") // OWNER, MEMBER, MANAGER
+  joinedAt  DateTime @default(now())
+
+  fpo  FPO  @relation(fields: [fpoId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([fpoId, userId])
+}
+
+// ─── Listing ─────────────────────────────────────────────────────────────────
+
+model Listing {
+  id                    String        @id @default(uuid())
+  farmerId              String
+  fpoId                 String?       // if listed via FPO
+  crop                  CropType
+  quantityQtl           Decimal       @db.Decimal(10, 2)
+  remainingQuantityQtl  Decimal       @db.Decimal(10, 2)
+  harvestDate           DateTime      @db.Date
+  askingPricePerQtl     Decimal       @db.Decimal(10, 2)
+  district              String
+  description           String?
+  status                ListingStatus @default(ACTIVE)
+  createdAt             DateTime      @default(now())
+  updatedAt             DateTime      @updatedAt
+
+  farmer  User    @relation(fields: [farmerId], references: [id])
+  matches Match[]
+  offers  Offer[]
+  deals   Deal[]
+
+  @@index([crop])
+  @@index([district])
+  @@index([status])
+  @@index([farmerId])
+  @@index([harvestDate])
+}
+
+// ─── Demand ──────────────────────────────────────────────────────────────────
+
+model Demand {
+  id                   String       @id @default(uuid())
+  buyerId              String
+  crop                 CropType
+  quantityQtl          Decimal      @db.Decimal(10, 2)
+  remainingQuantityQtl Decimal      @db.Decimal(10, 2)
+  deliveryDate         DateTime     @db.Date
+  maxPricePerQtl       Decimal      @db.Decimal(10, 2)
+  district             String
+  description          String?
+  status               DemandStatus @default(ACTIVE)
+  createdAt            DateTime     @default(now())
+  updatedAt            DateTime     @updatedAt
+
+  buyer   User    @relation(fields: [buyerId], references: [id])
+  matches Match[]
+  offers  Offer[]
+  deals   Deal[]
+
+  @@index([crop])
+  @@index([district])
+  @@index([status])
+  @@index([buyerId])
+  @@index([deliveryDate])
+}
+
+// ─── Match ───────────────────────────────────────────────────────────────────
+
+model Match {
+  id                  String   @id @default(uuid())
+  listingId           String
+  demandId            String
+  score               Int
+  qtyFit              Float
+  priceFit            Float
+  dateFit             Float
+  distFit             Float
+  tradeQuantityQtl    Decimal  @db.Decimal(10, 2)
+  suggestedPricePerQtl Decimal @db.Decimal(10, 2)
+  dealValue           Decimal  @db.Decimal(12, 2)
+  commissionEstimate  Decimal  @db.Decimal(10, 2)
+  isActive            Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  demand  Demand  @relation(fields: [demandId], references: [id], onDelete: Cascade)
+  deal    Deal?
+
+  @@unique([listingId, demandId])
+  @@index([score])
+  @@index([listingId])
+  @@index([demandId])
+}
+
+// ─── Offer ───────────────────────────────────────────────────────────────────
+
+model Offer {
+  id             String      @id @default(uuid())
+  listingId      String
+  demandId       String?
+  farmerId       String
+  buyerId        String
+  quantityQtl    Decimal     @db.Decimal(10, 2)
+  pricePerQtl    Decimal     @db.Decimal(10, 2)
+  totalValue     Decimal     @db.Decimal(12, 2)
+  commission     Decimal     @db.Decimal(10, 2)
+  message        String?
+  status         OfferStatus @default(PENDING)
+  currentTurnId  String      // userId of who needs to respond next
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  listing Listing        @relation(fields: [listingId], references: [id])
+  demand  Demand?        @relation(fields: [demandId], references: [id])
+  farmer  User           @relation("OfferFarmer", fields: [farmerId], references: [id])
+  buyer   User           @relation("OfferBuyer", fields: [buyerId], references: [id])
+  history OfferHistory[]
+  deal    Deal?
+
+  @@index([farmerId])
+  @@index([buyerId])
+  @@index([listingId])
+  @@index([status])
+}
+
+model OfferHistory {
+  id             String   @id @default(uuid())
+  offerId        String
+  senderId       String
+  pricePerQtl    Decimal  @db.Decimal(10, 2)
+  quantityQtl    Decimal  @db.Decimal(10, 2)
+  note           String?
+  statusSnapshot String   // what the offer status was at this point
+  createdAt      DateTime @default(now())
+
+  offer Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@index([offerId])
+}
+
+// ─── Deal ────────────────────────────────────────────────────────────────────
+
+model Deal {
+  id                 String     @id @default(uuid())
+  listingId          String
+  demandId           String?
+  matchId            String?    @unique
+  offerId            String?    @unique
+  farmerId           String
+  buyerId            String
+  quantityQtl        Decimal    @db.Decimal(10, 2)
+  agreedPricePerQtl  Decimal    @db.Decimal(10, 2)
+  totalValue         Decimal    @db.Decimal(12, 2)
+  commissionRate     Decimal    @db.Decimal(5, 4)  // e.g. 0.0250
+  commissionAmount   Decimal    @db.Decimal(10, 2)
+  status             DealStatus @default(CONFIRMED)
+  confirmedAt        DateTime   @default(now())
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+  cancelReason       String?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  listing Listing @relation(fields: [listingId], references: [id])
+  demand  Demand? @relation(fields: [demandId], references: [id])
+  match   Match?  @relation(fields: [matchId], references: [id])
+  offer   Offer?  @relation(fields: [offerId], references: [id])
+  farmer  User    @relation("DealFarmer", fields: [farmerId], references: [id])
+  buyer   User    @relation("DealBuyer", fields: [buyerId], references: [id])
+
+  @@index([farmerId])
+  @@index([buyerId])
+  @@index([listingId])
+  @@index([status])
+}
+
+// ─── Notification ─────────────────────────────────────────────────────────────
+
+model Notification {
+  id                String   @id @default(uuid())
+  userId            String
+  type              String   // new_match | new_offer | counteroffer_received | offer_accepted | offer_rejected | deal_confirmed | deal_completed | price_alert
+  title             String
+  message           String
+  relatedEntityType String?  // Listing | Demand | Offer | Deal | PriceAlert
+  relatedEntityId   String?
+  link              String?
+  isRead            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([userId, createdAt(sort: Desc)])
+}
+
+// ─── Price ───────────────────────────────────────────────────────────────────
+
+model PriceRecord {
+  id            String          @id @default(uuid())
+  crop          CropType
+  market        String
+  district      String
+  pricePerQtl   Decimal         @db.Decimal(10, 2)
+  minPrice      Decimal?        @db.Decimal(10, 2)
+  maxPrice      Decimal?        @db.Decimal(10, 2)
+  volumeQtl     Int?
+  recordedAt    DateTime
+  sourceType    PriceSourceType @default(DEMO)
+  createdAt     DateTime        @default(now())
+
+  @@index([crop, district, recordedAt(sort: Desc)])
+  @@index([recordedAt])
+}
+
+model PriceAlert {
+  id                  String         @id @default(uuid())
+  userId              String
+  crop                CropType
+  targetPricePerQtl   Decimal        @db.Decimal(10, 2)
+  condition           AlertCondition
+  district            String?
+  isActive            Boolean        @default(true)
+  lastTriggeredAt     DateTime?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([crop, isActive])
+}
+
+// ─── Waitlist ─────────────────────────────────────────────────────────────────
+
+model WaitlistEntry {
+  id        String   @id @default(uuid())
+  name      String
+  phone     String   @unique
+  role      UserRole
+  district  String
+  createdAt DateTime @default(now())
+
+  @@index([phone])
+}
