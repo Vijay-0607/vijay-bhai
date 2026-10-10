@@ -119,9 +119,42 @@ Suppose Lakshmi lists 25 quintals of Tomato at ₹2,300/q and Hotel Naveen requi
 2. **No Secure Cryptographic Storage**: While plaintext passwords are not stored directly, client-side mock authentication cannot provide server-grade security or credential encryption.
 3. **Local Scope**: Actions taken in one browser session are not synchronized in real-time across separate physical devices.
 
+### OTP signup and SMS setup
+
+Account creation verifies the submitted email or mobile number before creating the profile. Real SMS delivery requires a running PostgreSQL database and Twilio Verify settings in the uncommitted `server/.env`: `TWILIO_ACCOUNT_SID`, `TWILIO_VERIFY_SERVICE_SID`, and either the preferred `TWILIO_API_KEY_SID` plus `TWILIO_API_KEY_SECRET`, or `TWILIO_AUTH_TOKEN`. Twilio Verify handles the sender number and OTP validation. Copy the variable names from `server/.env.example`, fill them locally, and restart the backend. The app will report that SMS was not sent when Twilio is unavailable; it will not show a fake demo code for a phone number. Email-only local demo signup may use a clearly labeled on-screen test code when the backend or mail provider is unavailable.
+
+### Supabase PostgreSQL setup
+
+The backend uses Supabase's transaction-mode pooler (`DATABASE_URL`, port 6543) for application queries and the session-mode pooler (`DIRECT_URL`, port 5432) for Prisma migrations. Copy the Supabase connection string templates from `server/.env.example` into the uncommitted `server/.env`, replace `[YOUR-PASSWORD]` with your database password, and URL-encode any special characters in the password. Keep these credentials out of source control.
+
+After configuring both URLs, apply the database migrations and seed the catalogue from the `server` directory:
+
+```bash
+npm run db:migrate:prod
+npm run db:seed
+```
+
+The existing catalogue migration upgrades a database that already has the marketplace schema; it does not create all marketplace tables in a blank database.
+
 ---
 
-## 9. Features That Require a Backend for Production
+## 9. Crop Catalogue
+
+`src/data/crop-catalog.json` is the initial catalogue source. It contains 93 distinct crop products across 10 categories, with stable slugs, aliases, product forms, supported units, and optional Hindi/Kannada names. Translations are marked for native-speaker review; the UI falls back to the English name when a translation is missing.
+
+The React app still stores listings, demands, offers, and alerts in browser `localStorage` for the hackathon demo. Its selectors use the bundled catalogue directly, so crop selection works without PostgreSQL. The backend exposes the same catalogue through its API for database-backed clients. To enable that API, configure and start PostgreSQL, apply the migration to a database with the existing marketplace schema, then seed the catalogue:
+
+```bash
+cd server
+npm run db:migrate:prod
+npm run db:seed
+```
+
+The backend exposes `GET /api/v1/crops`, optional `category`, `search`, `page`, and `pageSize` filters, `GET /api/v1/crops/categories`, and `GET /api/v1/crops/:identifier`. Without `page`, the crops endpoint returns the complete active catalogue. Listings, demands, and price alerts store crop slugs; the migration converts old enum values to their matching slugs and adds restrictive foreign keys without deleting trade rows. This migration is an upgrade for an existing database; it does not create the rest of the marketplace schema on a blank database.
+
+The initial price data still covers only Tomato, Maize, Onion, and Green chilli, and is explicitly simulated. Other catalogue crops display “Price data unavailable” until real or separately labelled demo records exist. Adding a crop starts by adding a stable record to the shared JSON and rerunning the idempotent seed; no selector component needs a new crop list.
+
+## 10. Features That Require Additional Services for Production
 
 To transition from this hackathon prototype to a commercial production platform, the following backend components would be integrated:
 1. **Relational Database**: PostgreSQL / MySQL with ACID compliance for ledger entries and audit logs.
@@ -133,7 +166,7 @@ To transition from this hackathon prototype to a commercial production platform,
 
 ---
 
-## 10. Complete Hackathon Demonstration Script
+## 11. Complete Hackathon Demonstration Script
 
 Follow this step-by-step evaluation workflow:
 

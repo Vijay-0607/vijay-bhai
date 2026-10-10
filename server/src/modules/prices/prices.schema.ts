@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-const cropEnum = z.enum(['Tomato', 'Maize', 'Onion', 'Green_chilli']);
+const cropIdentifier = z.string().trim().min(1).max(120);
 
 export const createPriceAlertSchema = z.object({
-  crop: cropEnum,
+  crop: cropIdentifier,
   targetPricePerQtl: z.number().positive('Target price must be positive').max(100000),
   condition: z.enum(['ABOVE', 'BELOW']),
   district: z.string().min(2).max(100).optional(),

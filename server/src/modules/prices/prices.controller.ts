@@ -2,11 +2,12 @@ import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/apiResponse';
 import { CreatePriceAlertInput, UpdatePriceAlertInput } from './prices.schema';
+import { findActiveCrop, requireActiveCropSlug } from '../crops/crop.service';
 
 // Baseline market data mirroring mandiPrices.ts
 const BASELINE_MARKET_DATA: Record<string, any> = {
-  Tomato: {
-    crop: 'Tomato',
+  tomato: {
+    crop: 'tomato',
     currentSimulatedPrice: 2050,
     minPrice: 1350,
     maxPrice: 2950,
@@ -35,8 +36,8 @@ const BASELINE_MARKET_DATA: Record<string, any> = {
       { month: 'Dec', price: 2400, minPrice: 2000, maxPrice: 2750, volumeQuintals: 920 },
     ],
   },
-  Maize: {
-    crop: 'Maize',
+  maize: {
+    crop: 'maize',
     currentSimulatedPrice: 2250,
     minPrice: 1850,
     maxPrice: 2500,
@@ -65,8 +66,8 @@ const BASELINE_MARKET_DATA: Record<string, any> = {
       { month: 'Dec', price: 2250, minPrice: 1950, maxPrice: 2420, volumeQuintals: 2050 },
     ],
   },
-  Onion: {
-    crop: 'Onion',
+  onion: {
+    crop: 'onion',
     currentSimulatedPrice: 3200,
     minPrice: 1800,
     maxPrice: 4800,
@@ -95,8 +96,8 @@ const BASELINE_MARKET_DATA: Record<string, any> = {
       { month: 'Dec', price: 4200, minPrice: 3400, maxPrice: 4800, volumeQuintals: 900 },
     ],
   },
-  Green_chilli: {
-    crop: 'Green_chilli',
+  'green-chilli': {
+    crop: 'green-chilli',
     currentSimulatedPrice: 4500,
     minPrice: 2800,
     maxPrice: 6200,
@@ -128,36 +129,62 @@ const BASELINE_MARKET_DATA: Record<string, any> = {
 };
 
 export async function getAllPrices(_req: Request, res: Response): Promise<void> {
-  // Check if we have recent PriceRecords in DB
-  const recentRecords = await prisma.priceRecord.findMany({
-    orderBy: { recordedAt: 'desc' },
-    take: 20,
-  }).catch(() => []);
+  const [catalogue, recentRecords] = await Promise.all([
+    prisma.cropCatalog.findMany({ where: { isActive: true }, orderBy: { canonicalName: 'asc' } }),
+    prisma.priceRecord.findMany({ orderBy: { recordedAt: 'desc' }, take: 500 }),
+  ]);
+  const latestRecord = new Map<string, typeof recentRecords[number]>();
+  for (const record of recentRecords) if (!latestRecord.has(record.crop)) latestRecord.set(record.crop, record);
 
-  const responseData = { ...BASELINE_MARKET_DATA };
-
-  if (recentRecords.length > 0) {
-    for (const record of recentRecords) {
-      const cropKey = record.crop as string;
-      if (responseData[cropKey]) {
-        responseData[cropKey].currentSimulatedPrice = parseFloat(String(record.pricePerQtl));
-      }
+  const responseData: Record<string, unknown> = {};
+  for (const crop of catalogue) {
+    const record = latestRecord.get(crop.slug);
+    const simulated = BASELINE_MARKET_DATA[crop.slug];
+    if (record) {
+      responseData[crop.slug] = {
+        ...simulated,
+        crop: crop.slug,
+        canonicalName: crop.canonicalName,
+        priceDataAvailable: true,
+        latestPricePerQtl: Number(record.pricePerQtl),
+        minPrice: record.minPrice === null ? undefined : Number(record.minPrice),
+        maxPrice: record.maxPrice === null ? undefined : Number(record.maxPrice),
+        market: record.market,
+        district: record.district,
+        recordedAt: record.recordedAt,
+        sourceType: record.sourceType,
+      };
+    } else if (simulated) {
+      responseData[crop.slug] = { ...simulated, crop: crop.slug, canonicalName: crop.canonicalName, priceDataAvailable: true, sourceType: 'SIMULATED_DEMO' };
+    } else {
+      responseData[crop.slug] = { crop: crop.slug, canonicalName: crop.canonicalName, priceDataAvailable: false, message: 'Price data unavailable' };
     }
   }
-
   successResponse(res, responseData);
 }
 
 export async function getPriceByCrop(req: Request, res: Response): Promise<void> {
-  const crop = req.params.crop as string;
-  const data = BASELINE_MARKET_DATA[crop];
-
-  if (!data) {
-    errorResponse(res, 404, 'NOT_FOUND', `Crop '${crop}' not found`);
+  const crop = await findActiveCrop(String(req.params.crop));
+  if (!crop) {
+    errorResponse(res, 404, 'CROP_NOT_FOUND', 'Active crop was not found in the catalogue.');
     return;
   }
-
-  successResponse(res, data);
+  const records = await prisma.priceRecord.findMany({ where: { crop: crop.slug }, orderBy: { recordedAt: 'desc' }, take: 12 });
+  const simulated = BASELINE_MARKET_DATA[crop.slug];
+  if (!records.length && !simulated) {
+    successResponse(res, { crop: crop.slug, canonicalName: crop.canonicalName, priceDataAvailable: false, message: 'Price data unavailable for this crop.' });
+    return;
+  }
+  const latest = records[0];
+  successResponse(res, {
+    ...(simulated ?? {}),
+    crop: crop.slug,
+    canonicalName: crop.canonicalName,
+    priceDataAvailable: true,
+    sourceType: latest?.sourceType ?? 'SIMULATED_DEMO',
+    latestPricePerQtl: latest ? Number(latest.pricePerQtl) : simulated?.currentSimulatedPrice,
+    records: records.map((record) => ({ market: record.market, district: record.district, pricePerQtl: Number(record.pricePerQtl), minPrice: record.minPrice === null ? null : Number(record.minPrice), maxPrice: record.maxPrice === null ? null : Number(record.maxPrice), recordedAt: record.recordedAt, sourceType: record.sourceType })),
+  });
 }
 
 export async function getPriceAlerts(req: Request, res: Response): Promise<void> {
@@ -188,11 +215,13 @@ export async function getPriceAlerts(req: Request, res: Response): Promise<void>
 export async function createPriceAlert(req: Request, res: Response): Promise<void> {
   const userId = req.user!.id;
   const input = req.body as CreatePriceAlertInput;
+  const crop = await requireActiveCropSlug(input.crop);
+  if (!crop) { errorResponse(res, 400, 'UNSUPPORTED_CROP', 'Select an active crop from the catalogue.'); return; }
 
   const alert = await prisma.priceAlert.create({
     data: {
       userId,
-      crop: input.crop as any,
+      crop,
       targetPricePerQtl: input.targetPricePerQtl,
       condition: input.condition as any,
       district: input.district ?? null,

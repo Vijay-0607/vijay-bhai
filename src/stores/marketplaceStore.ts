@@ -11,6 +11,7 @@ import {
 import { SEED_LISTINGS, SEED_DEMANDS, SEED_OFFERS } from '../data/seedData';
 import { calculateDealValue, calculateCommission } from '../utils/commission';
 import { useNotificationStore } from './notificationStore';
+import { normalizeCropIdentifier } from '../data/cropCatalog';
 
 interface MarketplaceState {
   listings: HarvestListing[];
@@ -89,12 +90,17 @@ const STORAGE_KEY_OFFERS = 'mandimatch_offers';
 const STORAGE_KEY_ALERTS = 'mandimatch_price_alerts';
 const STORAGE_KEY_WAITLIST = 'mandimatch_waitlist';
 
-function loadOrSeed<T>(key: string, seed: T): T {
+function loadOrSeed<T>(key: string, seed: T, normalize?: (value: T) => T): T {
   try {
     const raw = localStorage.getItem(key);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed as T;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const loaded = parsed as T;
+        const normalized = normalize ? normalize(loaded) : loaded;
+        try { localStorage.setItem(key, JSON.stringify(normalized)); } catch {}
+        return normalized;
+      }
     }
   } catch (e) {
     console.error(`Error loading ${key} from storage:`, e);
@@ -106,10 +112,10 @@ function loadOrSeed<T>(key: string, seed: T): T {
 }
 
 export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
-  listings: loadOrSeed<HarvestListing[]>(STORAGE_KEY_LISTINGS, SEED_LISTINGS),
-  demands: loadOrSeed<BuyerDemand[]>(STORAGE_KEY_DEMANDS, SEED_DEMANDS),
-  offers: loadOrSeed<DealOffer[]>(STORAGE_KEY_OFFERS, SEED_OFFERS),
-  priceAlerts: loadOrSeed<PriceAlert[]>(STORAGE_KEY_ALERTS, []),
+  listings: loadOrSeed<HarvestListing[]>(STORAGE_KEY_LISTINGS, SEED_LISTINGS, (items) => items.map((item) => ({ ...item, crop: normalizeCropIdentifier(item.crop) }))),
+  demands: loadOrSeed<BuyerDemand[]>(STORAGE_KEY_DEMANDS, SEED_DEMANDS, (items) => items.map((item) => ({ ...item, crop: normalizeCropIdentifier(item.crop) }))),
+  offers: loadOrSeed<DealOffer[]>(STORAGE_KEY_OFFERS, SEED_OFFERS, (items) => items.map((item) => ({ ...item, crop: normalizeCropIdentifier(item.crop) }))),
+  priceAlerts: loadOrSeed<PriceAlert[]>(STORAGE_KEY_ALERTS, [], (items) => items.map((item) => ({ ...item, crop: normalizeCropIdentifier(item.crop) }))),
   waitlist: loadOrSeed<WaitlistEntry[]>(STORAGE_KEY_WAITLIST, []),
 
   addListing: (listingData) => {
@@ -212,7 +218,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     const demand = params.demandId ? get().demands.find((item) => item.id === params.demandId) : undefined;
     if (!listing) return { success: false, message: 'The harvest listing is no longer available.' };
     if (params.demandId && !demand) return { success: false, message: 'The buyer requirement is no longer available.' };
-    if (listing.crop !== params.crop || (demand && demand.crop !== params.crop)) {
+    const crop = normalizeCropIdentifier(params.crop);
+    if (normalizeCropIdentifier(listing.crop) !== crop || (demand && normalizeCropIdentifier(demand.crop) !== crop)) {
       return { success: false, message: 'The crop in this offer does not match the listing and requirement.' };
     }
     if (params.quantityQuintals > listing.availableQuantityQuintals || (demand && params.quantityQuintals > demand.requiredQuantityQuintals)) {
@@ -233,7 +240,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       farmerName: params.farmerName,
       buyerId: params.buyerId,
       buyerName: params.buyerName,
-      crop: params.crop,
+      crop,
       quantityQuintals: params.quantityQuintals,
       pricePerQuintal: params.pricePerQuintal,
       totalDealValue: dealValue,
@@ -265,7 +272,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     // Notify recipient
     useNotificationStore.getState().addNotification({
       userId: recipientId,
-      title: `New Offer for ${params.crop}`,
+      title: `New Offer for ${crop}`,
       message: `${params.senderName} offered ₹${params.pricePerQuintal}/q for ${params.quantityQuintals} quintals.`,
       type: 'new_offer',
       link: '/app/dashboard',

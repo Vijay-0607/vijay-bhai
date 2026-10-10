@@ -1,5 +1,5 @@
 import React from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useLanguageStore } from '../../stores/languageStore';
 import { useThemeStore } from '../../stores/themeStore';
@@ -17,21 +17,14 @@ import {
   ShieldCheck,
   TrendingUp,
 } from 'lucide-react';
-import { UserRole } from '../../types';
 
 export const Navbar: React.FC = () => {
-  const navigate = useNavigate();
-  const { currentUser, users, isAuthenticated, logout, loginAsDemo, switchDemoAccount } = useAuthStore();
+  const { currentUser, isAuthenticated, logout } = useAuthStore();
   const { language, setLanguage } = useLanguageStore();
   const { isDark, toggleTheme } = useThemeStore();
   const { unreadCount } = useNotificationStore();
 
   const unread = currentUser ? unreadCount(currentUser.id) : 0;
-
-  const handleDemoSwitch = (role: UserRole) => {
-    loginAsDemo(role);
-    navigate('/dashboard');
-  };
 
   return (
     <header className="sticky top-0 z-40 w-full border-b border-emerald-900/10 dark:border-emerald-500/20 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-md transition-colors">
@@ -90,59 +83,8 @@ export const Navbar: React.FC = () => {
             </nav>
           )}
 
-          {/* Right Action Icons: Demo switcher, Language, Theme, User */}
+          {/* Right Action Icons: Language, Theme, User */}
           <div className="flex items-center gap-2 sm:gap-3">
-            {/* Quick Demo Switcher */}
-            <div className="hidden lg:flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800/60 p-1 rounded-lg text-xs font-medium">
-              <span className="text-zinc-500 dark:text-zinc-400 px-1.5">Demo:</span>
-              <button
-                onClick={() => handleDemoSwitch('farmer')}
-                className={`px-2 py-1 rounded transition-colors ${
-                  currentUser?.role === 'farmer'
-                    ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-300 shadow-sm font-semibold'
-                    : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900'
-                }`}
-                title="Switch to Lakshmi Devi (Farmer)"
-              >
-                Farmer
-              </button>
-              <button
-                onClick={() => handleDemoSwitch('buyer')}
-                className={`px-2 py-1 rounded transition-colors ${
-                  currentUser?.role === 'buyer'
-                    ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-300 shadow-sm font-semibold'
-                    : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900'
-                }`}
-                title="Switch to Hotel Naveen (Buyer)"
-              >
-                Buyer
-              </button>
-              <button
-                onClick={() => handleDemoSwitch('fpo')}
-                className={`px-2 py-1 rounded transition-colors ${
-                  currentUser?.role === 'fpo'
-                    ? 'bg-white dark:bg-zinc-700 text-emerald-700 dark:text-emerald-300 shadow-sm font-semibold'
-                    : 'text-zinc-600 dark:text-zinc-300 hover:text-zinc-900'
-                }`}
-                title="Switch to Basavaraj FPO"
-              >
-                FPO
-              </button>
-              <select
-                aria-label="Switch demo account"
-                title="Switch to another demo account"
-                value={currentUser?.id ?? ''}
-                onChange={(event) => {
-                  switchDemoAccount(event.target.value);
-                  navigate('/dashboard');
-                }}
-                className="ml-1 max-w-36 rounded-md border border-zinc-200 bg-white px-2 py-1 text-xs text-zinc-700 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200"
-              >
-                <option value="" disabled>All accounts</option>
-                {users.map((user) => <option key={user.id} value={user.id}>{user.name}</option>)}
-              </select>
-            </div>
-
             {/* Language Selector */}
             <div className="relative flex items-center">
               <Globe className="w-4 h-4 text-zinc-500 dark:text-zinc-400 absolute left-2 pointer-events-none" />

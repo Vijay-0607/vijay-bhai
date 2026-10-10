@@ -36,6 +36,18 @@ const envSchema = z.object({
 
   PASSWORD_RESET_EXPIRES_MINUTES: z.coerce.number().int().positive().default(30),
 
+  // OTP delivery providers. Email uses Resend; SMS can use MSG91 or Twilio Verify.
+  RESEND_API_KEY: z.string().optional(),
+  OTP_EMAIL_FROM: z.string().optional(),
+  MSG91_AUTH_KEY: z.string().optional(),
+  MSG91_OTP_TEMPLATE_ID: z.string().optional(),
+  TWILIO_ACCOUNT_SID: z.string().optional(),
+  TWILIO_API_KEY_SID: z.string().optional(),
+  TWILIO_API_KEY_SECRET: z.string().optional(),
+  TWILIO_AUTH_TOKEN: z.string().optional(),
+  TWILIO_VERIFY_SERVICE_SID: z.string().optional(),
+  OTP_EXPIRES_MINUTES: z.coerce.number().int().positive().default(5),
+
   ADMIN_SEED_EMAIL: z.string().email().optional(),
   ADMIN_SEED_PASSWORD: z.string().min(8).optional(),
 });

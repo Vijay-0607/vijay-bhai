@@ -8,6 +8,7 @@ interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (emailOrPhone: string, passwordMock: string, rememberMe?: boolean) => { success: boolean; message?: string };
+  loginVerified: (user: UserProfile) => void;
   loginAsDemo: (role: UserRole) => void;
   switchDemoAccount: (userId: string) => void;
   signup: (userData: {
@@ -95,6 +96,20 @@ export const useAuthStore = create<AuthState>((set, get) => {
       });
 
       return { success: true };
+    },
+
+    loginVerified: (user: UserProfile) => {
+      const users = get().users;
+      const updatedUsers = users.some((item) => item.id === user.id)
+        ? users.map((item) => item.id === user.id ? { ...item, ...user } : item)
+        : [...users, user];
+      try {
+        localStorage.setItem(STORAGE_KEY_USERS, JSON.stringify(updatedUsers));
+        localStorage.setItem(STORAGE_KEY_SESSION, user.id);
+      } catch (e) {
+        console.warn('Failed to persist verified session to localStorage', e);
+      }
+      set({ users: updatedUsers, currentUser: user, isAuthenticated: true });
     },
 
     loginAsDemo: (role: UserRole) => {

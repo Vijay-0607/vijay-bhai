@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse, parsePagination, buildMeta } from '../../utils/apiResponse';
 import { CreateListingInput, UpdateListingInput, ListingQueryInput } from './listings.schema';
 import { recomputeMatchesForListing } from '../matches/matches.service';
+import { requireActiveCropSlug } from '../crops/crop.service';
 
 function formatListing(l: any) {
   return {
@@ -16,6 +17,11 @@ function formatListing(l: any) {
 export async function createListing(req: Request, res: Response): Promise<void> {
   const data = req.body as CreateListingInput;
   const userId = req.user!.id;
+  const crop = await requireActiveCropSlug(data.crop);
+  if (!crop) {
+    errorResponse(res, 400, 'UNSUPPORTED_CROP', 'Select an active crop from the catalogue.');
+    return;
+  }
 
   // If fpoId is given, verify ownership
   if (data.fpoId) {
@@ -30,7 +36,7 @@ export async function createListing(req: Request, res: Response): Promise<void> 
     data: {
       farmerId: userId,
       fpoId: data.fpoId ?? null,
-      crop: data.crop as any,
+      crop,
       quantityQtl: data.quantityQtl,
       remainingQuantityQtl: data.quantityQtl,
       harvestDate: new Date(data.harvestDate),
@@ -52,7 +58,11 @@ export async function getListings(req: Request, res: Response): Promise<void> {
   const { page, pageSize, skip } = parsePagination(req.query as any);
 
   const where: any = {};
-  if (q.crop) where.crop = q.crop;
+  if (q.crop) {
+    const crop = await requireActiveCropSlug(q.crop);
+    if (!crop) { errorResponse(res, 400, 'UNSUPPORTED_CROP', 'Crop filter is not in the active catalogue.'); return; }
+    where.crop = crop;
+  }
   if (q.district) where.district = { contains: q.district, mode: 'insensitive' };
   if (q.minQuantity) where.remainingQuantityQtl = { gte: q.minQuantity };
   if (q.maxPrice) where.askingPricePerQtl = { lte: q.maxPrice };
@@ -92,6 +102,11 @@ export async function getListing(req: Request, res: Response): Promise<void> {
 
 export async function updateListing(req: Request, res: Response): Promise<void> {
   const data = req.body as UpdateListingInput;
+  const crop = data.crop ? await requireActiveCropSlug(data.crop) : undefined;
+  if (data.crop && !crop) {
+    errorResponse(res, 400, 'UNSUPPORTED_CROP', 'Select an active crop from the catalogue.');
+    return;
+  }
   const userId = req.user!.id;
   const id = req.params.id as string;
 
@@ -118,7 +133,7 @@ export async function updateListing(req: Request, res: Response): Promise<void> 
   const updated = await prisma.listing.update({
     where: { id: listing.id },
     data: {
-      ...(data.crop ? { crop: data.crop as any } : {}),
+      ...(crop ? { crop } : {}),
       ...(data.quantityQtl !== undefined ? { quantityQtl: data.quantityQtl } : {}),
       ...(data.harvestDate ? { harvestDate: new Date(data.harvestDate) } : {}),
       ...(data.askingPricePerQtl !== undefined ? { askingPricePerQtl: data.askingPricePerQtl } : {}),

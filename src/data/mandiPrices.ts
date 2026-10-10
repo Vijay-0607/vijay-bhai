@@ -12,9 +12,9 @@ export interface CropPriceInfo {
   districtBenchmarks: { district: string; price: number }[];
 }
 
-export const CROP_PRICE_DATA: Record<CropType, CropPriceInfo> = {
-  Tomato: {
-    crop: 'Tomato',
+export const CROP_PRICE_DATA: Partial<Record<string, CropPriceInfo>> = {
+  tomato: {
+    crop: 'tomato',
     currentSimulatedPrice: 2050,
     minPrice: 1350,
     maxPrice: 2950,
@@ -43,8 +43,8 @@ export const CROP_PRICE_DATA: Record<CropType, CropPriceInfo> = {
       { month: 'Dec', price: 2400, minPrice: 2000, maxPrice: 2750, volumeQuintals: 920 },
     ],
   },
-  Maize: {
-    crop: 'Maize',
+  maize: {
+    crop: 'maize',
     currentSimulatedPrice: 2250,
     minPrice: 1850,
     maxPrice: 2500,
@@ -73,8 +73,8 @@ export const CROP_PRICE_DATA: Record<CropType, CropPriceInfo> = {
       { month: 'Dec', price: 2120, minPrice: 1900, maxPrice: 2280, volumeQuintals: 3600 },
     ],
   },
-  Onion: {
-    crop: 'Onion',
+  onion: {
+    crop: 'onion',
     currentSimulatedPrice: 1720,
     minPrice: 1200,
     maxPrice: 3100,
@@ -103,8 +103,8 @@ export const CROP_PRICE_DATA: Record<CropType, CropPriceInfo> = {
       { month: 'Dec', price: 2950, minPrice: 2400, maxPrice: 3450, volumeQuintals: 1500 },
     ],
   },
-  'Green chilli': {
-    crop: 'Green chilli',
+  'green-chilli': {
+    crop: 'green-chilli',
     currentSimulatedPrice: 4200,
     minPrice: 2800,
     maxPrice: 5600,

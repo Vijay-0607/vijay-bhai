@@ -2,7 +2,9 @@ export type UserRole = 'farmer' | 'buyer' | 'fpo';
 
 export type Language = 'en' | 'hi' | 'kn';
 
-export type CropType = 'Tomato' | 'Maize' | 'Onion' | 'Green chilli';
+// Crop values are stable catalogue slugs; keep the string type extensible so
+// new catalogue records do not require rebuilding every component type.
+export type CropType = string;
 
 export interface UserProfile {
   id: string;
@@ -93,8 +95,8 @@ export interface SmartMatch {
   suggestedPrice: number;
   dealValue: number;
   estimatedCommission: number;
-  mandiBenchmarkPrice: number;
-  priceComparison: 'fair' | 'low' | 'high';
+  mandiBenchmarkPrice?: number;
+  priceComparison: 'fair' | 'low' | 'high' | 'unavailable';
 }
 
 export type NotificationType =

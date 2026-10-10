@@ -6,8 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -23,13 +24,6 @@ enum Language {
   EN
   HI
   KN
-}
-
-enum CropType {
-  Tomato
-  Maize
-  Onion
-  Green_chilli
 }
 
 enum ListingStatus {
@@ -114,6 +108,33 @@ model User {
   @@index([role])
 }
 
+// Central, extensible crop catalogue. Listing, demand, and price records store
+// this stable slug rather than a translated display name or a closed enum.
+model CropCatalog {
+  id                         String   @id @default(uuid())
+  canonicalName              String
+  slug                       String   @unique
+  category                   String
+  productForm                String?
+  localNameEnglish           String
+  localNameHindi             String?
+  localNameKannada           String?
+  aliases                    String[] @default([])
+  supportedUnits             String[] @default(["quintal", "kilogram", "tonne"])
+  isActive                   Boolean  @default(true)
+  translationReviewRequired  Boolean  @default(true)
+  createdAt                  DateTime @default(now())
+  updatedAt                  DateTime @updatedAt
+
+  listings    Listing[]
+  demands     Demand[]
+  priceRecords PriceRecord[]
+  priceAlerts PriceAlert[]
+
+  @@index([category, isActive])
+  @@index([canonicalName])
+}
+
 // ─── FPO ─────────────────────────────────────────────────────────────────────
 
 model FPO {
@@ -150,7 +171,7 @@ model Listing {
   id                    String        @id @default(uuid())
   farmerId              String
   fpoId                 String?       // if listed via FPO
-  crop                  CropType
+  crop                  String
   quantityQtl           Decimal       @db.Decimal(10, 2)
   remainingQuantityQtl  Decimal       @db.Decimal(10, 2)
   harvestDate           DateTime      @db.Date
@@ -161,7 +182,8 @@ model Listing {
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
-  farmer  User    @relation(fields: [farmerId], references: [id])
+  farmer  User        @relation(fields: [farmerId], references: [id])
+  cropInfo CropCatalog @relation(fields: [crop], references: [slug], onDelete: Restrict)
   matches Match[]
   offers  Offer[]
   deals   Deal[]
@@ -178,7 +200,7 @@ model Listing {
 model Demand {
   id                   String       @id @default(uuid())
   buyerId              String
-  crop                 CropType
+  crop                 String
   quantityQtl          Decimal      @db.Decimal(10, 2)
   remainingQuantityQtl Decimal      @db.Decimal(10, 2)
   deliveryDate         DateTime     @db.Date
@@ -189,7 +211,8 @@ model Demand {
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
 
-  buyer   User    @relation(fields: [buyerId], references: [id])
+  buyer    User        @relation(fields: [buyerId], references: [id])
+  cropInfo CropCatalog @relation(fields: [crop], references: [slug], onDelete: Restrict)
   matches Match[]
   offers  Offer[]
   deals   Deal[]
@@ -336,7 +359,7 @@ model Notification {
 
 model PriceRecord {
   id            String          @id @default(uuid())
-  crop          CropType
+  crop          String
   market        String
   district      String
   pricePerQtl   Decimal         @db.Decimal(10, 2)
@@ -347,6 +370,8 @@ model PriceRecord {
   sourceType    PriceSourceType @default(DEMO)
   createdAt     DateTime        @default(now())
 
+  cropInfo CropCatalog @relation(fields: [crop], references: [slug], onDelete: Restrict)
+
   @@index([crop, district, recordedAt(sort: Desc)])
   @@index([recordedAt])
 }
@@ -354,7 +379,7 @@ model PriceRecord {
 model PriceAlert {
   id                  String         @id @default(uuid())
   userId              String
-  crop                CropType
+  crop                String
   targetPricePerQtl   Decimal        @db.Decimal(10, 2)
   condition           AlertCondition
   district            String?
@@ -363,7 +388,8 @@ model PriceAlert {
   createdAt           DateTime       @default(now())
   updatedAt           DateTime       @updatedAt
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user     User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cropInfo CropCatalog @relation(fields: [crop], references: [slug], onDelete: Restrict)
 
   @@index([userId])
   @@index([crop, isActive])

@@ -3,6 +3,7 @@ import { calculateDistrictFit } from './distance';
 import { CROP_PRICE_DATA } from '../data/mandiPrices';
 import { classifyPrice } from './priceClassification';
 import { calculateDealValue, calculateCommission } from './commission';
+import { normalizeCropIdentifier } from '../data/cropCatalog';
 
 export function calculateQtyFit(listingQty: number, demandQty: number): number {
   if (listingQty <= 0 || demandQty <= 0) return 0;
@@ -40,7 +41,7 @@ export function calculateMatchScore(
   dateFit: number;
   distFit: number;
 } {
-  if (listing.crop !== demand.crop) {
+  if (normalizeCropIdentifier(listing.crop) !== normalizeCropIdentifier(demand.crop)) {
     return { score: 0, qtyFit: 0, priceFit: 0, dateFit: 0, distFit: 0 };
   }
 
@@ -72,7 +73,7 @@ export function generateSmartMatches(
 
     for (const demand of demands) {
       if (demand.requiredQuantityQuintals <= 0) continue;
-      if (listing.crop !== demand.crop) continue;
+      if (normalizeCropIdentifier(listing.crop) !== normalizeCropIdentifier(demand.crop)) continue;
 
       const fitResults = calculateMatchScore(listing, demand);
 
@@ -87,9 +88,9 @@ export function generateSmartMatches(
         const dealValue = calculateDealValue(suggestedPrice, tradeQuantity);
         const estimatedCommission = calculateCommission(dealValue, 2.5);
 
-        const cropBenchmark =
-          CROP_PRICE_DATA[listing.crop]?.currentSimulatedPrice || suggestedPrice;
-        const priceComparison = classifyPrice(suggestedPrice, cropBenchmark);
+        const cropPrice = CROP_PRICE_DATA[normalizeCropIdentifier(listing.crop)];
+        const cropBenchmark = cropPrice?.currentSimulatedPrice;
+        const priceComparison = cropBenchmark === undefined ? 'unavailable' : classifyPrice(suggestedPrice, cropBenchmark);
 
         matches.push({
           id: `match-${listing.id}-${demand.id}`,
@@ -104,7 +105,7 @@ export function generateSmartMatches(
           suggestedPrice,
           dealValue,
           estimatedCommission,
-          mandiBenchmarkPrice: cropBenchmark,
+          ...(cropBenchmark === undefined ? {} : { mandiBenchmarkPrice: cropBenchmark }),
           priceComparison,
         });
       }

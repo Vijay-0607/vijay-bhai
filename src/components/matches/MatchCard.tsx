@@ -14,9 +14,10 @@ import {
 interface MatchCardProps {
   match: SmartMatch;
   onSendOffer: (match: SmartMatch) => void;
+  cropLabel?: string;
 }
 
-export const MatchCard: React.FC<MatchCardProps> = ({ match, onSendOffer }) => {
+export const MatchCard: React.FC<MatchCardProps> = ({ match, onSendOffer, cropLabel }) => {
   const getScoreBadge = (score: number) => {
     if (score >= 90) return { variant: 'success' as const, label: `${score}% Excellent Fit` };
     if (score >= 80) return { variant: 'primary' as const, label: `${score}% Great Fit` };
@@ -34,7 +35,7 @@ export const MatchCard: React.FC<MatchCardProps> = ({ match, onSendOffer }) => {
           <div>
             <div className="flex items-center gap-2">
               <h4 className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
-                {match.listing.crop}
+                {cropLabel || match.listing.crop}
               </h4>
               <Badge variant={badgeInfo.variant} size="sm" icon={<Sparkles className="w-3 h-3" />}>
                 {badgeInfo.label}

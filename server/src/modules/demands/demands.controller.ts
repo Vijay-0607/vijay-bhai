@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse, parsePagination, buildMeta } from '../../utils/apiResponse';
 import { CreateDemandInput, UpdateDemandInput, DemandQueryInput } from './demands.schema';
 import { recomputeMatchesForDemand } from '../matches/matches.service';
+import { requireActiveCropSlug } from '../crops/crop.service';
 
 function formatDemand(d: any) {
   return {
@@ -16,11 +17,16 @@ function formatDemand(d: any) {
 export async function createDemand(req: Request, res: Response): Promise<void> {
   const data = req.body as CreateDemandInput;
   const userId = req.user!.id;
+  const crop = await requireActiveCropSlug(data.crop);
+  if (!crop) {
+    errorResponse(res, 400, 'UNSUPPORTED_CROP', 'Select an active crop from the catalogue.');
+    return;
+  }
 
   const demand = await prisma.demand.create({
     data: {
       buyerId: userId,
-      crop: data.crop as any,
+      crop,
       quantityQtl: data.quantityQtl,
       remainingQuantityQtl: data.quantityQtl,
       deliveryDate: new Date(data.deliveryDate),
@@ -41,7 +47,11 @@ export async function getDemands(req: Request, res: Response): Promise<void> {
   const { page, pageSize, skip } = parsePagination(req.query as any);
 
   const where: any = {};
-  if (q.crop) where.crop = q.crop;
+  if (q.crop) {
+    const crop = await requireActiveCropSlug(q.crop);
+    if (!crop) { errorResponse(res, 400, 'UNSUPPORTED_CROP', 'Crop filter is not in the active catalogue.'); return; }
+    where.crop = crop;
+  }
   if (q.district) where.district = { contains: q.district, mode: 'insensitive' };
   if (q.minQuantity) where.remainingQuantityQtl = { gte: q.minQuantity };
   if (q.maxPrice) where.maxPricePerQtl = { lte: q.maxPrice };
@@ -77,6 +87,11 @@ export async function getDemand(req: Request, res: Response): Promise<void> {
 
 export async function updateDemand(req: Request, res: Response): Promise<void> {
   const data = req.body as UpdateDemandInput;
+  const crop = data.crop ? await requireActiveCropSlug(data.crop) : undefined;
+  if (data.crop && !crop) {
+    errorResponse(res, 400, 'UNSUPPORTED_CROP', 'Select an active crop from the catalogue.');
+    return;
+  }
   const userId = req.user!.id;
   const id = req.params.id as string;
 
@@ -102,7 +117,7 @@ export async function updateDemand(req: Request, res: Response): Promise<void> {
   const updated = await prisma.demand.update({
     where: { id: demand.id },
     data: {
-      ...(data.crop ? { crop: data.crop as any } : {}),
+      ...(crop ? { crop } : {}),
       ...(data.quantityQtl !== undefined ? { quantityQtl: data.quantityQtl } : {}),
       ...(data.deliveryDate ? { deliveryDate: new Date(data.deliveryDate) } : {}),
       ...(data.maxPricePerQtl !== undefined ? { maxPricePerQtl: data.maxPricePerQtl } : {}),

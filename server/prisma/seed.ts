@@ -1,10 +1,60 @@
-import { PrismaClient, UserRole, Language, CropType, ListingStatus, DemandStatus, OfferStatus, DealStatus } from '@prisma/client';
+import { PrismaClient, UserRole, Language, ListingStatus, DemandStatus, OfferStatus, DealStatus } from '@prisma/client';
 import argon2 from 'argon2';
+import cropCatalogue from '../../src/data/crop-catalog.json';
 
 const prisma = new PrismaClient();
 
 async function main() {
   console.log('🌱 Starting database seed...');
+
+  const catalogueStats = { inserted: 0, updated: 0, skipped: 0, failed: 0 };
+  for (const crop of cropCatalogue.crops) {
+    try {
+      if (!crop.canonicalName?.trim() || !crop.slug?.trim() || !crop.category?.trim()) {
+        throw new Error('Crop is missing a canonical name, stable slug, or category.');
+      }
+      const data = {
+        canonicalName: crop.canonicalName.trim(),
+        slug: crop.slug.trim().toLowerCase(),
+        category: crop.category.trim(),
+        productForm: crop.productForm ?? null,
+        localNameEnglish: crop.canonicalName.trim(),
+        localNameHindi: crop.localNameHindi ?? null,
+        localNameKannada: crop.localNameKannada ?? null,
+        aliases: crop.aliases,
+        supportedUnits: crop.supportedUnits,
+        isActive: true,
+        translationReviewRequired: Boolean(crop.localNameHindi || crop.localNameKannada),
+      };
+      const existing = await prisma.cropCatalog.findUnique({ where: { slug: data.slug } });
+      if (!existing) {
+        await prisma.cropCatalog.create({ data });
+        catalogueStats.inserted += 1;
+        continue;
+      }
+      const unchanged = existing.canonicalName === data.canonicalName
+        && existing.category === data.category
+        && existing.productForm === data.productForm
+        && existing.localNameEnglish === data.localNameEnglish
+        && existing.localNameHindi === data.localNameHindi
+        && existing.localNameKannada === data.localNameKannada
+        && JSON.stringify(existing.aliases) === JSON.stringify(data.aliases)
+        && JSON.stringify(existing.supportedUnits) === JSON.stringify(data.supportedUnits)
+        && existing.isActive === data.isActive
+        && existing.translationReviewRequired === data.translationReviewRequired;
+      if (unchanged) {
+        catalogueStats.skipped += 1;
+      } else {
+        await prisma.cropCatalog.update({ where: { slug: data.slug }, data });
+        catalogueStats.updated += 1;
+      }
+    } catch (error) {
+      catalogueStats.failed += 1;
+      console.error(`❌ Crop catalogue entry failed (${crop.slug || 'missing slug'}):`, error);
+    }
+  }
+  console.log(`🌾 Crop catalogue: ${catalogueStats.inserted} inserted, ${catalogueStats.updated} updated, ${catalogueStats.skipped} skipped, ${catalogueStats.failed} failed`);
+  if (catalogueStats.failed > 0) throw new Error('Crop catalogue seed had failures; stopping before seeding marketplace data.');
 
   const defaultPasswordHash = await argon2.hash('Password123!');
   const adminPasswordHash = await argon2.hash(process.env.ADMIN_SEED_PASSWORD || 'ChangeMe_Admin_2025!');
@@ -180,7 +230,7 @@ async function main() {
     {
       id: 'listing-tomato-fpo',
       farmerId: 'user-fpo-basavaraj',
-      crop: CropType.Tomato,
+      crop: 'tomato',
       quantityQtl: 40,
       remainingQuantityQtl: 40,
       harvestDate: addDays(10),
@@ -192,7 +242,7 @@ async function main() {
     {
       id: 'listing-tomato-lakshmi',
       farmerId: 'user-farmer-lakshmi',
-      crop: CropType.Tomato,
+      crop: 'tomato',
       quantityQtl: 25,
       remainingQuantityQtl: 25,
       harvestDate: addDays(7),
@@ -204,7 +254,7 @@ async function main() {
     {
       id: 'listing-mahesh-maize',
       farmerId: 'user-farmer-mahesh',
-      crop: CropType.Maize,
+      crop: 'maize',
       quantityQtl: 60,
       remainingQuantityQtl: 60,
       harvestDate: addDays(14),
@@ -216,7 +266,7 @@ async function main() {
     {
       id: 'listing-savita-onion',
       farmerId: 'user-farmer-savita',
-      crop: CropType.Onion,
+      crop: 'onion',
       quantityQtl: 35,
       remainingQuantityQtl: 5, // 30 reserved/sold
       harvestDate: addDays(12),
@@ -228,7 +278,7 @@ async function main() {
     {
       id: 'listing-chilli-demo',
       farmerId: 'user-fpo-basavaraj',
-      crop: CropType.Green_chilli,
+      crop: 'green-chilli',
       quantityQtl: 18,
       remainingQuantityQtl: 18,
       harvestDate: addDays(6),
@@ -253,7 +303,7 @@ async function main() {
     {
       id: 'demand-naveen-tomato',
       buyerId: 'user-buyer-hotel-naveen',
-      crop: CropType.Tomato,
+      crop: 'tomato',
       quantityQtl: 30,
       remainingQuantityQtl: 30,
       deliveryDate: addDays(8),
@@ -265,7 +315,7 @@ async function main() {
     {
       id: 'demand-freshkart-tomato',
       buyerId: 'user-buyer-freshkart',
-      crop: CropType.Tomato,
+      crop: 'tomato',
       quantityQtl: 50,
       remainingQuantityQtl: 50,
       deliveryDate: addDays(11),
@@ -277,7 +327,7 @@ async function main() {
     {
       id: 'demand-annapurna-maize',
       buyerId: 'user-buyer-annapurna',
-      crop: CropType.Maize,
+      crop: 'maize',
       quantityQtl: 80,
       remainingQuantityQtl: 80,
       deliveryDate: addDays(15),
@@ -289,7 +339,7 @@ async function main() {
     {
       id: 'demand-sriveg-onion',
       buyerId: 'user-buyer-sri-veg',
-      crop: CropType.Onion,
+      crop: 'onion',
       quantityQtl: 30,
       remainingQuantityQtl: 0, // fulfilled
       deliveryDate: addDays(13),
@@ -301,7 +351,7 @@ async function main() {
     {
       id: 'demand-chilli-spices',
       buyerId: 'user-buyer-hotel-naveen',
-      crop: CropType.Green_chilli,
+      crop: 'green-chilli',
       quantityQtl: 15,
       remainingQuantityQtl: 15,
       deliveryDate: addDays(7),
@@ -543,17 +593,29 @@ async function main() {
 
   // 9. Baseline Price Records
   const priceRecords = [
-    { crop: CropType.Tomato, market: 'Hubballi APMC', district: 'Hubballi', pricePerQtl: 2000, minPrice: 1350, maxPrice: 2950, volumeQtl: 1200 },
-    { crop: CropType.Tomato, market: 'Dharwad APMC', district: 'Dharwad', pricePerQtl: 2150, minPrice: 1400, maxPrice: 3000, volumeQtl: 850 },
-    { crop: CropType.Maize, market: 'Hubballi APMC', district: 'Hubballi', pricePerQtl: 2280, minPrice: 1850, maxPrice: 2500, volumeQtl: 2100 },
-    { crop: CropType.Maize, market: 'Gadag APMC', district: 'Gadag', pricePerQtl: 2260, minPrice: 1800, maxPrice: 2450, volumeQtl: 1750 },
-    { crop: CropType.Onion, market: 'Belagavi APMC', district: 'Belagavi', pricePerQtl: 3100, minPrice: 1800, maxPrice: 4800, volumeQtl: 1500 },
-    { crop: CropType.Green_chilli, market: 'Hubballi APMC', district: 'Hubballi', pricePerQtl: 4450, minPrice: 2800, maxPrice: 6200, volumeQtl: 500 },
+    { id: 'seed-price-tomato-hubballi', crop: 'tomato', market: 'Hubballi APMC', district: 'Hubballi', pricePerQtl: 2000, minPrice: 1350, maxPrice: 2950, volumeQtl: 1200 },
+    { id: 'seed-price-tomato-dharwad', crop: 'tomato', market: 'Dharwad APMC', district: 'Dharwad', pricePerQtl: 2150, minPrice: 1400, maxPrice: 3000, volumeQtl: 850 },
+    { id: 'seed-price-maize-hubballi', crop: 'maize', market: 'Hubballi APMC', district: 'Hubballi', pricePerQtl: 2280, minPrice: 1850, maxPrice: 2500, volumeQtl: 2100 },
+    { id: 'seed-price-maize-gadag', crop: 'maize', market: 'Gadag APMC', district: 'Gadag', pricePerQtl: 2260, minPrice: 1800, maxPrice: 2450, volumeQtl: 1750 },
+    { id: 'seed-price-onion-belagavi', crop: 'onion', market: 'Belagavi APMC', district: 'Belagavi', pricePerQtl: 3100, minPrice: 1800, maxPrice: 4800, volumeQtl: 1500 },
+    { id: 'seed-price-green-chilli-hubballi', crop: 'green-chilli', market: 'Hubballi APMC', district: 'Hubballi', pricePerQtl: 4450, minPrice: 2800, maxPrice: 6200, volumeQtl: 500 },
   ];
 
   for (const pr of priceRecords) {
-    await prisma.priceRecord.create({
-      data: {
+      await prisma.priceRecord.upsert({
+        where: { id: pr.id },
+        update: {
+          crop: pr.crop,
+          market: pr.market,
+          district: pr.district,
+          pricePerQtl: pr.pricePerQtl,
+          minPrice: pr.minPrice,
+          maxPrice: pr.maxPrice,
+          volumeQtl: pr.volumeQtl,
+          recordedAt: now,
+        },
+        create: {
+          id: pr.id,
         crop: pr.crop,
         market: pr.market,
         district: pr.district,

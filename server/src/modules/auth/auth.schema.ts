@@ -30,6 +30,25 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+export const otpRequestSchema = z.object({
+  identifier: z.string().trim().min(3).max(254),
+});
+
+export const otpVerifySchema = z.object({
+  identifier: z.string().trim().min(3).max(254),
+  code: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
+});
+
+export const signupOtpRequestSchema = z.object({
+  name: z.string().min(2).max(100).trim(),
+  identifier: z.string().trim().min(3).max(254),
+  role: z.enum(['FARMER', 'BUYER', 'FPO']),
+  district: z.string().min(1).max(100).trim(),
+  preferredLanguage: z.enum(['EN', 'HI', 'KN']).default('EN'),
+});
+
+export const signupOtpVerifySchema = otpVerifySchema;
+
 export const forgotPasswordSchema = z.object({
   identifier: z.string().min(1, 'Email or phone is required'),
 });

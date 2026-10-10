@@ -1,9 +1,9 @@
 import { z } from 'zod';
 
-const cropEnum = z.enum(['Tomato', 'Maize', 'Onion', 'Green_chilli']);
+const cropIdentifier = z.string().trim().min(1).max(120);
 
 export const createDemandSchema = z.object({
-  crop: cropEnum,
+  crop: cropIdentifier,
   quantityQtl: z.number().positive('Quantity must be positive').max(10000),
   deliveryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD format'),
   maxPricePerQtl: z.number().positive('Max price must be positive').max(100000),
@@ -16,7 +16,7 @@ export const updateDemandSchema = createDemandSchema.partial().extend({
 });
 
 export const demandQuerySchema = z.object({
-  crop: cropEnum.optional(),
+  crop: cropIdentifier.optional(),
   district: z.string().optional(),
   minQuantity: z.coerce.number().positive().optional(),
   maxPrice: z.coerce.number().positive().optional(),
