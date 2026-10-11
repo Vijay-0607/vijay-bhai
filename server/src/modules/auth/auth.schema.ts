@@ -41,14 +41,14 @@ export const otpVerifySchema = z.object({
 
 export const signupOtpRequestSchema = z.object({
   name: z.string().min(2).max(100).trim(),
-  identifier: z.string().regex(/^(\+91[-\s]?)?[6-9]\d{9}$/, 'A valid Indian mobile number is required'),
+  email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
   role: z.enum(['FARMER', 'BUYER', 'FPO']),
   district: z.string().min(1).max(100).trim(),
   preferredLanguage: z.enum(['EN', 'HI', 'KN']).default('EN'),
 });
 
 export const signupOtpVerifySchema = z.object({
-  identifier: z.string().regex(/^(\+91[-\s]?)?[6-9]\d{9}$/, 'A valid Indian mobile number is required'),
+  email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
   code: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
 });
 

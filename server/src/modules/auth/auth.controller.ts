@@ -160,9 +160,14 @@ function providerConfigured(kind: 'email' | 'phone'): boolean {
 }
 
 function otpProviderSetupMessage(kind: 'email' | 'phone'): string {
-  return kind === 'email'
-    ? 'Email OTP delivery is not configured. Add the Resend settings to the backend environment.'
-    : 'SMS OTP delivery is not configured. Add MSG91 auth key and OTP template ID (or Twilio Verify settings) to the backend environment.';
+  if (kind === 'email') {
+    const missing = [
+      !env.RESEND_API_KEY ? 'RESEND_API_KEY' : null,
+      !env.OTP_EMAIL_FROM ? 'OTP_EMAIL_FROM' : null,
+    ].filter((name): name is string => name !== null);
+    return `Email OTP delivery is not configured. Set ${missing.join(' and ')} in server/.env${missing.includes('OTP_EMAIL_FROM') ? ' using a sender address or domain verified with Resend' : ''}.`;
+  }
+  return 'SMS OTP delivery is not configured. Add MSG91 auth key and OTP template ID (or Twilio Verify settings) to the backend environment.';
 }
 
 function formatUser(user: {
@@ -297,61 +302,59 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
 }
 
 export async function requestSignupOtp(req: Request, res: Response): Promise<void> {
-  const parsed = parseIdentifier(String(req.body.identifier ?? ''));
-  if (!parsed) {
-    errorResponse(res, 400, 'INVALID_IDENTIFIER', 'Enter a valid email address or Indian mobile number.');
-    return;
-  }
-  if (parsed.kind !== 'phone') {
-    errorResponse(res, 400, 'PHONE_REQUIRED', 'A mobile number is required to create an account.');
+  const email = String(req.body.email ?? '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    errorResponse(res, 400, 'INVALID_EMAIL', 'Enter a valid email address.');
     return;
   }
   const existing = await prisma.user.findFirst({
-    where: { phone: parsed.value },
+    where: { email },
     select: { id: true },
   });
   if (existing) {
-    errorResponse(res, 409, 'IDENTIFIER_TAKEN', 'An account with this email or phone already exists.');
+    errorResponse(res, 409, 'IDENTIFIER_TAKEN', 'An account with this email already exists. Sign in instead.');
     return;
   }
-  if (!providerConfigured('phone')) {
-    errorResponse(res, 503, 'OTP_DELIVERY_NOT_CONFIGURED', otpProviderSetupMessage('phone'));
+  if (!providerConfigured('email')) {
+    errorResponse(res, 503, 'OTP_DELIVERY_NOT_CONFIGURED', otpProviderSetupMessage('email'));
     return;
   }
 
-  const key = `phone:${parsed.value}`;
+  const key = `email:${email}`;
   const signup: PendingSignup = {
     name: String(req.body.name).trim(),
-    email: null,
-    phone: parsed.value,
+    email,
+    phone: null,
     role: req.body.role,
     district: String(req.body.district).trim(),
     preferredLanguage: req.body.preferredLanguage ?? 'EN',
   };
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
   try {
-    const provider = await deliverOtp('phone', parsed.value, '');
+    const provider = await deliverOtp('email', email, code);
     signupOtpChallenges.set(key, {
       signup,
-      codeHash: null,
+      codeHash: hashOtp(key, code),
       provider,
       expiresAt: Date.now() + env.OTP_EXPIRES_MINUTES * 60 * 1000,
       attempts: 0,
     });
-    successResponse(res, { message: 'A 6-digit verification code was sent to your mobile phone.', expiresInSeconds: env.OTP_EXPIRES_MINUTES * 60 });
+    successResponse(res, { message: 'A 6-digit verification code was sent to your email address.', expiresInSeconds: env.OTP_EXPIRES_MINUTES * 60 });
   } catch (error) {
-    logger.error({ error, channel: parsed.kind }, 'Signup OTP delivery failed');
+    signupOtpChallenges.delete(key);
+    logger.error({ error, channel: 'email' }, 'Signup OTP delivery failed');
     errorResponse(res, 503, 'OTP_DELIVERY_FAILED', 'We could not send the code right now. Please try again shortly.');
   }
 }
 
 export async function verifySignupOtp(req: Request, res: Response): Promise<void> {
-  const parsed = parseIdentifier(String(req.body.identifier ?? ''));
+  const email = String(req.body.email ?? '').trim().toLowerCase();
   const code = String(req.body.code ?? '');
-  if (!parsed || !/^\d{6}$/.test(code)) {
-    errorResponse(res, 400, 'INVALID_OTP', 'Enter a valid email or mobile number and the 6-digit code.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !/^\d{6}$/.test(code)) {
+    errorResponse(res, 400, 'INVALID_OTP', 'Enter a valid email address and the 6-digit code.');
     return;
   }
-  const key = `${parsed.kind}:${parsed.value}`;
+  const key = `email:${email}`;
   const challenge = signupOtpChallenges.get(key);
   if (!challenge || challenge.expiresAt <= Date.now()) {
     signupOtpChallenges.delete(key);
@@ -366,15 +369,11 @@ export async function verifySignupOtp(req: Request, res: Response): Promise<void
   challenge.attempts += 1;
   let validCode: boolean;
   try {
-    if (parsed.kind === 'phone') {
-      validCode = await verifyPhoneCode(challenge.provider as PhoneOtpProvider, parsed.value, code);
-    } else {
-      const expected = Buffer.from(challenge.codeHash!, 'hex');
-      const received = Buffer.from(hashOtp(key, code), 'hex');
-      validCode = crypto.timingSafeEqual(expected, received);
-    }
+    const expected = Buffer.from(challenge.codeHash!, 'hex');
+    const received = Buffer.from(hashOtp(key, code), 'hex');
+    validCode = crypto.timingSafeEqual(expected, received);
   } catch (error) {
-    logger.error({ error, channel: parsed.kind }, 'Signup OTP verification provider failed');
+    logger.error({ error, channel: 'email' }, 'Signup OTP verification failed');
     errorResponse(res, 503, 'OTP_VERIFICATION_FAILED', 'We could not verify the code right now. Please try again shortly.');
     return;
   }
@@ -384,7 +383,7 @@ export async function verifySignupOtp(req: Request, res: Response): Promise<void
   }
   signupOtpChallenges.delete(key);
   const duplicate = await prisma.user.findFirst({
-    where: parsed.kind === 'email' ? { email: parsed.value } : { phone: parsed.value },
+    where: { email },
     select: { id: true },
   });
   if (duplicate) {
@@ -394,7 +393,7 @@ export async function verifySignupOtp(req: Request, res: Response): Promise<void
 
   const passwordHash = await hashPassword(crypto.randomBytes(32).toString('base64url'));
   const user = await prisma.user.create({
-    data: { ...challenge.signup, passwordHash, phoneVerifiedAt: new Date() },
+    data: { ...challenge.signup, passwordHash },
     select: {
       id: true, name: true, email: true, phone: true, upiId: true, role: true,
       district: true, preferredLanguage: true, profileDescription: true,
@@ -407,13 +406,13 @@ export async function verifySignupOtp(req: Request, res: Response): Promise<void
   await prisma.user.update({ where: { id: user.id }, data: { refreshTokenHash: refreshHash } });
   res.cookie('mm_access', accessToken, COOKIE_OPTS_ACCESS);
   res.cookie('mm_refresh', refreshToken, COOKIE_OPTS_REFRESH);
-  logger.info({ userId: user.id, role: user.role, channel: parsed.kind }, 'User registered after OTP verification');
+  logger.info({ userId: user.id, role: user.role, channel: 'email' }, 'User registered after OTP verification');
   successResponse(res, { user: formatUser(user) }, 201);
 }
 
 export async function register(req: Request, res: Response): Promise<void> {
-  // New accounts must use the OTP signup flow so their mandatory phone is verified.
-  errorResponse(res, 410, 'OTP_SIGNUP_REQUIRED', 'Create your account using the mobile OTP signup flow.');
+  // New accounts must use the email OTP signup flow so the address is verified.
+  errorResponse(res, 410, 'OTP_SIGNUP_REQUIRED', 'Create your account using the email OTP signup flow.');
   return;
 
   const data = req.body as RegisterInput;

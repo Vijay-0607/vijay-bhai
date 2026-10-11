@@ -14,9 +14,13 @@ describe('email OTP login validation', () => {
     expect(otpVerifySchema.safeParse({ email: 'farmer@gmail.com', code: '12345' }).success).toBe(false);
   });
 
-  it('preserves the phone OTP signup request and verification schemas', () => {
-    const signup = { name: 'Lakshmi Devi', identifier: '+919876543210', role: 'FARMER', district: 'Dharwad' };
+  it('requires and normalizes an email for signup OTP request and verification', () => {
+    const signup = { name: 'Lakshmi Devi', email: '  FARMER@example.com ', role: 'FARMER', district: 'Dharwad' };
     expect(signupOtpRequestSchema.safeParse(signup).success).toBe(true);
-    expect(signupOtpVerifySchema.safeParse({ identifier: signup.identifier, code: '123456' }).success).toBe(true);
+    const request = signupOtpRequestSchema.safeParse(signup);
+    expect(request.success).toBe(true);
+    if (request.success) expect(request.data.email).toBe('farmer@example.com');
+    expect(signupOtpVerifySchema.safeParse({ email: signup.email, code: '123456' }).success).toBe(true);
+    expect(signupOtpRequestSchema.safeParse({ ...signup, email: '+919876543210' }).success).toBe(false);
   });
 });

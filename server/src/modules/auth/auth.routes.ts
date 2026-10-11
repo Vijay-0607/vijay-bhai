@@ -54,7 +54,7 @@ router.post('/otp/request', authLimiter, validate(otpRequestSchema), requestOtp)
 /** Verify an email login code and create a session. */
 router.post('/otp/verify', authLimiter, validate(otpVerifySchema), verifyOtp);
 
-/** Start account creation; user is not created until their email or phone OTP is verified. */
+/** Start account creation; user is not created until their email OTP is verified. */
 router.post('/signup/otp/request', authLimiter, validate(signupOtpRequestSchema), requestSignupOtp);
 router.post('/signup/otp/verify', authLimiter, validate(signupOtpVerifySchema), verifySignupOtp);
 

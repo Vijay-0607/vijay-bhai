@@ -33,10 +33,19 @@ export function createApp(): Express {
 
   // CORS configuration
   const allowedOrigins = env.FRONTEND_ORIGIN.split(',').map((o) => o.trim());
+  const isLocalDevelopmentOrigin = (origin: string): boolean => {
+    if (env.NODE_ENV !== 'development') return false;
+    try {
+      const url = new URL(origin);
+      return url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]', '::1'].includes(url.hostname);
+    } catch {
+      return false;
+    }
+  };
   app.use(
     cors({
       origin: (origin, callback) => {
-        if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+        if (!origin || allowedOrigins.includes(origin) || allowedOrigins.includes('*') || isLocalDevelopmentOrigin(origin)) {
           callback(null, true);
         } else {
           callback(new Error(`Origin ${origin} not allowed by CORS`));
