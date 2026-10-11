@@ -27,6 +27,7 @@ const envSchema = z.object({
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
 
   FRONTEND_ORIGIN: z.string().default('http://localhost:5173'),
+  PLATFORM_UPI_ID: z.preprocess((value) => value === '' ? undefined : value, z.string().regex(/^[\w.-]{2,256}@[\w.-]{2,64}$/).optional()),
 
   COOKIE_SECURE: z
     .string()

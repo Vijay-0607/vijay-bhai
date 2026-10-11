@@ -5,12 +5,14 @@ import { createNotification } from '../notifications/notifications.service';
 import { CreateOfferInput, CounterOfferInput } from './offers.schema';
 import { COMMISSION_RATE } from '../../utils/matching';
 import { Decimal } from '@prisma/client/runtime/library';
+import { logger } from '../../config/logger';
+import { recomputeMatchesForDemand, recomputeMatchesForListing } from '../matches/matches.service';
 
 const OFFER_INCLUDE = {
   listing: { select: { id: true, crop: true, district: true, farmer: { select: { id: true, name: true } } } },
   demand: { select: { id: true, crop: true, district: true, buyer: { select: { id: true, name: true } } } },
-  farmer: { select: { id: true, name: true, phone: true } },
-  buyer: { select: { id: true, name: true, phone: true } },
+  farmer: { select: { id: true, name: true, phone: true, upiId: true } },
+  buyer: { select: { id: true, name: true, phone: true, upiId: true } },
   history: { orderBy: { createdAt: 'asc' as const } },
   deal: { select: { id: true, status: true } },
 };
@@ -25,7 +27,7 @@ function formatOffer(o: any) {
     pricePerQtl: parseFloat(o.pricePerQtl),
     totalValue: parseFloat(o.totalValue),
     commission: parseFloat(o.commission),
-    ...(o.deal && ['ACCEPTED', 'COMPLETED'].includes(o.status) ? { contacts: { farmerPhone: farmer?.phone, buyerPhone: buyer?.phone } } : {}),
+    ...(o.deal && ['ACCEPTED', 'COMPLETED'].includes(o.status) ? { contacts: { farmerPhone: farmer?.phone, buyerPhone: buyer?.phone, farmerUpiId: farmer?.upiId, buyerUpiId: buyer?.upiId } } : {}),
   };
 }
 
@@ -269,8 +271,8 @@ export async function acceptOffer(req: Request, res: Response): Promise<void> {
   const offer = await prisma.offer.findUnique({
     where: { id },
     include: {
-      farmer: { select: { name: true } },
-      buyer: { select: { name: true } },
+      farmer: { select: { name: true, phone: true, upiId: true } },
+      buyer: { select: { name: true, phone: true, upiId: true } },
       deal: true,
     },
   });
@@ -288,6 +290,16 @@ export async function acceptOffer(req: Request, res: Response): Promise<void> {
 
   if (!['PENDING', 'NEGOTIATING'].includes(offer.status)) {
     errorResponse(res, 409, 'INVALID_STATE', `Cannot accept a ${offer.status.toLowerCase()} offer`);
+    return;
+  }
+
+  if (!offer.farmer.phone || !offer.buyer.phone) {
+    errorResponse(res, 409, 'PHONE_REQUIRED', 'Both the farmer and buyer must have a phone number on their account before confirming this deal.');
+    return;
+  }
+
+  if (!offer.farmer.upiId || !offer.buyer.upiId) {
+    errorResponse(res, 409, 'UPI_REQUIRED', 'Both the farmer and buyer must save a UPI ID in their profile before confirming this deal.');
     return;
   }
 
@@ -393,6 +405,12 @@ export async function acceptOffer(req: Request, res: Response): Promise<void> {
   });
 
   if (!deal) return;
+
+  // Remove the confirmed pair from recommendations and refresh matches for any remaining quantity.
+  await Promise.all([
+    recomputeMatchesForListing(offer.listingId),
+    offer.demandId ? recomputeMatchesForDemand(offer.demandId) : Promise.resolve(),
+  ]).catch((error) => logger.warn({ error, offerId: offer.id }, 'Could not refresh matches after deal confirmation'));
 
   await createNotification({
     userId: notifyUserId,

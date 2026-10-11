@@ -33,12 +33,17 @@ export default function MatchesPage() {
   const matches = useMemo(() => {
     if (!user) return [];
     let result = generateSmartMatches(listings, demands);
+    const confirmedOffers = offers
+      .filter((offer) => offer.status === 'confirmed' || offer.status === 'completed')
+    const confirmedListingIds = new Set(confirmedOffers.map((offer) => offer.listingId));
+    const confirmedDemandIds = new Set(confirmedOffers.map((offer) => offer.demandId).filter((id): id is string => Boolean(id)));
+    result = result.filter((match) => !confirmedListingIds.has(match.listing.id) && !confirmedDemandIds.has(match.demand.id));
     if (user.role === 'buyer') result = result.filter((match) => match.demand.buyerId === user.id);
     else result = result.filter((match) => match.listing.farmerId === user.id);
     if (crop !== 'all') result = result.filter((match) => normalizeCropIdentifier(match.listing.crop) === normalizeCropIdentifier(crop));
     if (query.trim()) result = result.filter((match) => `${match.listing.farmerName} ${match.demand.buyerName} ${match.listing.district} ${match.demand.district}`.toLowerCase().includes(query.toLowerCase()));
     return result;
-  }, [crop, demands, listings, query, user?.id, user?.role]);
+  }, [crop, demands, listings, offers, query, user?.id, user?.role]);
   if (!user) return null;
 
   const offerMatch = async (match: (typeof matches)[number]) => {

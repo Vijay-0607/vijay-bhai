@@ -11,6 +11,7 @@ import {
   otpVerifySchema,
   signupOtpRequestSchema,
   signupOtpVerifySchema,
+  updateUpiSchema,
 } from './auth.schema';
 import {
   register,
@@ -24,6 +25,7 @@ import {
   verifyOtp,
   requestSignupOtp,
   verifySignupOtp,
+  updateUpi,
 } from './auth.controller';
 
 const router = Router();
@@ -46,10 +48,10 @@ router.post('/register', authLimiter, validate(registerSchema), register);
  */
 router.post('/login', authLimiter, validate(loginSchema), login);
 
-/** Request a one-time code over email or SMS. */
+/** Request a one-time login code over email. */
 router.post('/otp/request', authLimiter, validate(otpRequestSchema), requestOtp);
 
-/** Verify a one-time code and create a session. */
+/** Verify an email login code and create a session. */
 router.post('/otp/verify', authLimiter, validate(otpVerifySchema), verifyOtp);
 
 /** Start account creation; user is not created until their email or phone OTP is verified. */
@@ -73,6 +75,7 @@ router.post('/logout', authenticate, logout);
  *     summary: Get current authenticated user
  */
 router.get('/me', authenticate, me);
+router.patch('/me/upi', authenticate, validate(updateUpiSchema), updateUpi);
 
 /**
  * @openapi

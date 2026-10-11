@@ -7,6 +7,7 @@ import {
   Sprout,
   ShoppingBag,
   TrendingUp,
+  LifeBuoy,
 } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 
@@ -75,6 +76,18 @@ export const MobileNav: React.FC = () => {
       >
         <TrendingUp className="w-5 h-5" />
         <span>{translateUi("Prices")}</span>
+      </NavLink>
+
+      <NavLink
+        to="/support"
+        className={({ isActive }) =>
+          `flex flex-col items-center gap-1 py-1 px-2 rounded-lg text-[10px] font-medium transition-colors ${
+            isActive ? 'text-[#1E5E3A] dark:text-emerald-400 font-bold' : 'text-zinc-500 dark:text-zinc-400'
+          }`
+        }
+      >
+        <LifeBuoy className="w-5 h-5" />
+        <span>{translateUi("Help")}</span>
       </NavLink>
     </nav>
   );

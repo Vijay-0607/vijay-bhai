@@ -102,6 +102,7 @@ export const COMMISSION_RATE = 0.025;
 export function computeMatch({ listing, demand }: MatchInput): MatchOutput | null {
   // Must match on exact crop type
   if (listing.crop !== demand.crop) return null;
+  if (listing.remainingQuantityQtl <= 0 || demand.remainingQuantityQtl <= 0) return null;
 
   const qtyFit = calculateQtyFit(listing.remainingQuantityQtl, demand.remainingQuantityQtl);
   const priceFit = calculatePriceFit(listing.askingPricePerQtl, demand.maxPricePerQtl);

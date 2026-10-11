@@ -18,7 +18,7 @@ const demoAccounts: Array<{ role: UserRole; roleLabel: string }> = [
   { role: 'fpo', roleLabel: 'FPO' },
 ];
 
-function toProfile(raw: Record<string, unknown>, identifier: string): UserProfile {
+function toProfile(raw: Record<string, unknown>, emailAddress: string): UserProfile {
   const role = String(raw.role ?? 'FARMER').toLowerCase() as UserRole;
   const language = String(raw.preferredLanguage ?? 'EN').toLowerCase() as Language;
   const email = typeof raw.email === 'string' ? raw.email : '';
@@ -26,8 +26,9 @@ function toProfile(raw: Record<string, unknown>, identifier: string): UserProfil
   return {
     id: String(raw.id),
     name: String(raw.name ?? 'MandiMatch user'),
-    emailOrPhone: email || phone || identifier,
+    emailOrPhone: email || phone || emailAddress,
     phone: phone || undefined,
+    upiId: typeof raw.upiId === 'string' ? raw.upiId : undefined,
     role,
     district: String(raw.district ?? ''),
     language,
@@ -43,7 +44,7 @@ export default function LoginPage() {
   const loginAsDemo = useAuthStore((s) => s.loginAsDemo);
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const [identifier, setIdentifier] = useState('');
+  const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [otpRequested, setOtpRequested] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
@@ -74,10 +75,11 @@ export default function LoginPage() {
   };
 
   const requestOtp = async () => {
-    if (!identifier.trim()) { showToast('Enter your email address or mobile number.', 'error'); return; }
+    const normalizedEmail = email.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) { showToast('Enter a valid email address.', 'error'); return; }
     setBusy(true);
     try {
-      const result = await callOtpApi('request', { identifier: identifier.trim() });
+      const result = await callOtpApi('request', { email: normalizedEmail });
       setOtpRequested(true);
       setOtp('');
       setExpiresAt(Date.now() + 5 * 60 * 1000);
@@ -104,9 +106,10 @@ export default function LoginPage() {
     if (secondsLeft <= 0) { showToast('That code has expired. Request a new OTP.', 'error'); return; }
     setBusy(true);
     try {
-      const result = await callOtpApi('verify', { identifier: identifier.trim(), code: otp });
+      const normalizedEmail = email.trim().toLowerCase();
+      const result = await callOtpApi('verify', { email: normalizedEmail, code: otp });
       if (!result.data?.user) throw new Error('The server did not return a verified account.');
-      loginVerified(toProfile(result.data.user, identifier));
+      loginVerified(toProfile(result.data.user, normalizedEmail));
       navigate('/dashboard');
     } catch (error) {
       showToast(error instanceof Error ? error.message : 'The code could not be verified.', 'error');
@@ -115,8 +118,8 @@ export default function LoginPage() {
     }
   };
 
-  const changeIdentifier = (value: string) => {
-    setIdentifier(value);
+  const changeEmail = (value: string) => {
+    setEmail(value);
     setOtpRequested(false);
     setStatusMessage('');
     setOtp('');
@@ -127,9 +130,9 @@ export default function LoginPage() {
     <div>
       <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-700 text-white"><Sprout /></div>
       <h1 className="mt-5 text-3xl font-bold">{translateUi("Sign in with a one-time code")}</h1>
-      <p className="mt-2 text-zinc-600 dark:text-zinc-400">{translateUi("Enter the registered email or mobile number. We’ll send a 6-digit OTP to verify it.")}</p>
+      <p className="mt-2 text-zinc-600 dark:text-zinc-400">{translateUi("Enter your registered email address. We’ll send a 6-digit OTP to your inbox.")}</p>
       <form onSubmit={sendOtp} className="mt-6 space-y-4">
-        <label className="block text-sm font-semibold">{translateUi("Email address or mobile number")}<input autoComplete="username" inputMode="email" required value={identifier} onChange={(e) => changeIdentifier(e.target.value)} placeholder={translateUi("you@gmail.com or +91 98450 12345")} className="mt-1 block w-full rounded-xl border border-zinc-300 bg-white px-3 py-3 font-normal dark:border-zinc-700 dark:bg-zinc-900" /></label>
+        <label className="block text-sm font-semibold">{translateUi("Email address")}<input type="email" autoComplete="email" inputMode="email" maxLength={254} required value={email} onChange={(e) => changeEmail(e.target.value)} placeholder={translateUi("you@gmail.com")} className="mt-1 block w-full rounded-xl border border-zinc-300 bg-white px-3 py-3 font-normal dark:border-zinc-700 dark:bg-zinc-900" /></label>
         <button disabled={busy} className="w-full rounded-xl bg-emerald-700 px-4 py-3 font-semibold text-white disabled:opacity-60">{translateUi(busy && !otpRequested ? 'Sending…' : otpRequested ? 'Resend OTP' : 'Send OTP')}</button>
       </form>
       {otpRequested && <div className="mt-5 rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-900 dark:bg-emerald-950/20">
@@ -144,7 +147,7 @@ export default function LoginPage() {
     </div>
     <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 dark:border-emerald-900 dark:bg-emerald-950/20">
       <h2 className="text-lg font-bold">{translateUi("Explore the demo")}</h2>
-      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{translateUi("Demo access uses sample data and skips OTP. Real email or phone sign-in needs an active OTP provider.")}</p>
+      <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{translateUi("Demo access uses sample data and skips OTP. Email sign-in requires an active email OTP provider.")}</p>
       <div className="mt-5 space-y-3">{demoAccounts.map((item) => <div key={item.role} className="rounded-xl border border-white bg-white p-4 shadow-sm dark:border-zinc-800 dark:bg-zinc-900"><span className="block font-semibold">{item.roleLabel} demo</span><span className="mt-0.5 block text-xs text-zinc-500">{translateUi("Sample data · no real account")}</span><button type="button" onClick={() => enterDemo(item.role)} className="mt-3 w-full rounded-lg bg-emerald-700 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-800">Continue as demo {item.roleLabel}</button></div>)}</div>
     </div>
   </div>;

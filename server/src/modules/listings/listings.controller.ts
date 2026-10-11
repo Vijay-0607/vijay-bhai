@@ -124,6 +124,10 @@ export async function updateListing(req: Request, res: Response): Promise<void> 
     errorResponse(res, 409, 'INVALID_STATE', `Cannot update a ${listing.status.toLowerCase()} listing`);
     return;
   }
+  if (data.quantityQtl !== undefined && listing.status !== 'ACTIVE') {
+    errorResponse(res, 409, 'INVALID_STATE', 'Quantity can only be edited while the listing is fully active.');
+    return;
+  }
 
   // If cancelling, check for active confirmed deals
   if (data.status === 'CANCELLED') {
@@ -140,7 +144,7 @@ export async function updateListing(req: Request, res: Response): Promise<void> 
     where: { id: listing.id },
     data: {
       ...(crop ? { crop } : {}),
-      ...(data.quantityQtl !== undefined ? { quantityQtl: data.quantityQtl } : {}),
+      ...(data.quantityQtl !== undefined ? { quantityQtl: data.quantityQtl, remainingQuantityQtl: data.quantityQtl } : {}),
       ...(data.harvestDate ? { harvestDate: new Date(data.harvestDate) } : {}),
       ...(data.askingPricePerQtl !== undefined ? { askingPricePerQtl: data.askingPricePerQtl } : {}),
       ...(data.district ? { district: data.district } : {}),

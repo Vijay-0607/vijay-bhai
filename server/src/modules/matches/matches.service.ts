@@ -26,7 +26,16 @@ export async function recomputeMatchesForListing(listingId: string): Promise<voi
     },
   });
 
+  const confirmedDemandIds = new Set((await prisma.deal.findMany({
+    where: { listingId, demandId: { not: null }, status: { in: ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] } },
+    select: { demandId: true },
+  })).map((deal) => deal.demandId));
+
   for (const demand of demands) {
+    if (confirmedDemandIds.has(demand.id)) {
+      await prisma.match.updateMany({ where: { listingId, demandId: demand.id }, data: { isActive: false } });
+      continue;
+    }
     const result = computeMatch({
       listing: {
         id: listing.id,
@@ -111,7 +120,16 @@ export async function recomputeMatchesForDemand(demandId: string): Promise<void>
     },
   });
 
+  const confirmedListingIds = new Set((await prisma.deal.findMany({
+    where: { demandId, status: { in: ['CONFIRMED', 'IN_PROGRESS', 'COMPLETED'] } },
+    select: { listingId: true },
+  })).map((deal) => deal.listingId));
+
   for (const listing of listings) {
+    if (confirmedListingIds.has(listing.id)) {
+      await prisma.match.updateMany({ where: { listingId: listing.id, demandId }, data: { isActive: false } });
+      continue;
+    }
     const result = computeMatch({
       listing: {
         id: listing.id,

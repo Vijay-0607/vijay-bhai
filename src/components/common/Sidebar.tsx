@@ -1,8 +1,9 @@
 import { translateUi } from '../../locales/translateUi';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { useMarketplaceStore } from '../../stores/marketplaceStore';
+import { isBackendAccount } from '../../lib/api';
 import {
   LayoutDashboard,
   Sprout,
@@ -12,11 +13,21 @@ import {
   User,
   Bell,
   Scale,
+  LifeBuoy,
 } from 'lucide-react';
 
 export const Sidebar: React.FC = () => {
   const { currentUser } = useAuthStore();
   const { offers } = useMarketplaceStore();
+  const refreshBackend = useMarketplaceStore((s) => s.refreshBackend);
+
+  useEffect(() => {
+    if (!currentUser || !isBackendAccount(currentUser.id)) return;
+    const refresh = () => { void refreshBackend().catch(() => undefined); };
+    refresh();
+    const timer = window.setInterval(refresh, 10000);
+    return () => window.clearInterval(timer);
+  }, [currentUser?.id, refreshBackend]);
 
   const userPendingOffers = currentUser
     ? offers.filter(
@@ -34,6 +45,7 @@ export const Sidebar: React.FC = () => {
     { to: '/prices', label: 'Mandi Prices', icon: TrendingUp },
     { to: '/profile', label: 'My Profile', icon: User },
     { to: '/notifications', label: 'Notifications', icon: Bell },
+    { to: '/support', label: 'Report a problem', icon: LifeBuoy },
   ];
 
   return (
@@ -85,7 +97,7 @@ export const Sidebar: React.FC = () => {
 
       {/* Active Negotiation Counter Card */}
       {userPendingOffers > 0 && (
-        <div className="mt-auto p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/40 text-xs">
+        <NavLink to="/dashboard#offers" aria-label={`${userPendingOffers} active deal offers. Open negotiations`} className="mt-auto block rounded-xl bg-amber-50 p-3 text-left text-xs transition-colors hover:bg-amber-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:bg-amber-950/30 dark:hover:bg-amber-950/60 border border-amber-300 dark:border-amber-800/40">
           <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-semibold mb-1">
             <Scale className="w-4 h-4 text-amber-600" />
             <span>{translateUi("Active Negotiations")}</span>
@@ -93,7 +105,8 @@ export const Sidebar: React.FC = () => {
           <p className="text-zinc-600 dark:text-zinc-400">
             {translateUi("You have")} <span className="font-bold text-amber-600 dark:text-amber-400">{userPendingOffers}</span> {translateUi(userPendingOffers === 1 ? 'deal offer in negotiation.' : 'deal offers in negotiation.')}
           </p>
-        </div>
+          <span className="mt-2 inline-flex items-center gap-1 font-semibold text-amber-800 dark:text-amber-300">{translateUi('View offers')} <span aria-hidden="true">→</span></span>
+        </NavLink>
       )}
     </aside>
   );

@@ -39,7 +39,7 @@ type PendingSignup = {
 type SignupOtpChallenge = { signup: PendingSignup; codeHash: string | null; provider: OtpProvider; expiresAt: number; attempts: number };
 const otpChallenges = new Map<string, OtpChallenge>();
 const signupOtpChallenges = new Map<string, SignupOtpChallenge>();
-const OTP_MESSAGE = 'If an account with that email or mobile number exists, a verification code has been sent.';
+const OTP_MESSAGE = 'If a registered account exists for this email, a verification code has been sent.';
 
 function parseIdentifier(identifier: string): { kind: 'email' | 'phone'; value: string } | null {
   const value = identifier.trim();
@@ -170,6 +170,7 @@ function formatUser(user: {
   name: string;
   email: string | null;
   phone: string | null;
+  upiId: string | null;
   role: string;
   district: string;
   preferredLanguage: string;
@@ -183,6 +184,7 @@ function formatUser(user: {
     name: user.name,
     email: user.email,
     phone: user.phone,
+    upiId: user.upiId,
     role: user.role,
     district: user.district,
     preferredLanguage: user.preferredLanguage,
@@ -194,23 +196,18 @@ function formatUser(user: {
 }
 
 export async function requestOtp(req: Request, res: Response): Promise<void> {
-  const parsed = parseIdentifier(String(req.body.identifier ?? ''));
-  if (!parsed) {
-    errorResponse(res, 400, 'INVALID_IDENTIFIER', 'Enter a valid email address or Indian mobile number.');
+  const email = String(req.body.email ?? '').trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) {
+    errorResponse(res, 400, 'INVALID_EMAIL', 'Enter a valid email address.');
     return;
   }
-  if (!providerConfigured(parsed.kind)) {
-    errorResponse(
-      res,
-      503,
-      'OTP_DELIVERY_NOT_CONFIGURED',
-      otpProviderSetupMessage(parsed.kind)
-    );
+  if (!providerConfigured('email')) {
+    errorResponse(res, 503, 'OTP_DELIVERY_NOT_CONFIGURED', otpProviderSetupMessage('email'));
     return;
   }
 
   const user = await prisma.user.findFirst({
-    where: parsed.kind === 'email' ? { email: parsed.value } : { phone: parsed.value },
+    where: { email },
     select: { id: true, isActive: true },
   });
   // Keep the response the same whether or not the account exists.
@@ -219,33 +216,34 @@ export async function requestOtp(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const identifierKey = `${parsed.kind}:${parsed.value}`;
-  const code = parsed.kind === 'email' ? String(crypto.randomInt(0, 1_000_000)).padStart(6, '0') : '';
+  const identifierKey = `email:${email}`;
+  const code = String(crypto.randomInt(0, 1_000_000)).padStart(6, '0');
   try {
-    const provider = await deliverOtp(parsed.kind, parsed.value, code);
+    const provider = await deliverOtp('email', email, code);
     otpChallenges.set(identifierKey, {
       userId: user.id,
-      codeHash: parsed.kind === 'email' ? hashOtp(identifierKey, code) : null,
+      codeHash: hashOtp(identifierKey, code),
       provider,
       expiresAt: Date.now() + env.OTP_EXPIRES_MINUTES * 60 * 1000,
       attempts: 0,
     });
     successResponse(res, { message: OTP_MESSAGE });
   } catch (error) {
-    logger.error({ error, channel: parsed.kind }, 'OTP delivery failed');
+    otpChallenges.delete(identifierKey);
+    logger.error({ error, channel: 'email' }, 'OTP delivery failed');
     errorResponse(res, 503, 'OTP_DELIVERY_FAILED', 'We could not send the code right now. Please try again shortly.');
   }
 }
 
 export async function verifyOtp(req: Request, res: Response): Promise<void> {
-  const parsed = parseIdentifier(String(req.body.identifier ?? ''));
+  const email = String(req.body.email ?? '').trim().toLowerCase();
   const code = String(req.body.code ?? '');
-  if (!parsed || !/^\d{6}$/.test(code)) {
-    errorResponse(res, 400, 'INVALID_OTP', 'Enter a valid email or mobile number and the 6-digit code.');
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254 || !/^\d{6}$/.test(code)) {
+    errorResponse(res, 400, 'INVALID_OTP', 'Enter a valid email address and the 6-digit code.');
     return;
   }
 
-  const identifierKey = `${parsed.kind}:${parsed.value}`;
+  const identifierKey = `email:${email}`;
   const challenge = otpChallenges.get(identifierKey);
   if (!challenge || challenge.expiresAt <= Date.now()) {
     otpChallenges.delete(identifierKey);
@@ -261,15 +259,11 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
   challenge.attempts += 1;
   let validCode: boolean;
   try {
-    if (parsed.kind === 'phone') {
-      validCode = await verifyPhoneCode(challenge.provider as PhoneOtpProvider, parsed.value, code);
-    } else {
-      const expected = Buffer.from(challenge.codeHash!, 'hex');
-      const received = Buffer.from(hashOtp(identifierKey, code), 'hex');
-      validCode = crypto.timingSafeEqual(expected, received);
-    }
+    const expected = Buffer.from(challenge.codeHash!, 'hex');
+    const received = Buffer.from(hashOtp(identifierKey, code), 'hex');
+    validCode = crypto.timingSafeEqual(expected, received);
   } catch (error) {
-    logger.error({ error, channel: parsed.kind }, 'OTP verification provider failed');
+    logger.error({ error, channel: 'email' }, 'OTP verification failed');
     errorResponse(res, 503, 'OTP_VERIFICATION_FAILED', 'We could not verify the code right now. Please try again shortly.');
     return;
   }
@@ -282,7 +276,7 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: challenge.userId },
     select: {
-      id: true, name: true, email: true, phone: true, role: true,
+      id: true, name: true, email: true, phone: true, upiId: true, role: true,
       district: true, preferredLanguage: true, profileDescription: true,
       rating: true, completedDealsCount: true, createdAt: true, isActive: true, phoneVerifiedAt: true,
     },
@@ -292,17 +286,13 @@ export async function verifyOtp(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  if (parsed.kind === 'phone' && !user.phoneVerifiedAt) {
-    await prisma.user.update({ where: { id: user.id }, data: { phoneVerifiedAt: new Date() } });
-  }
-
   const accessToken = signAccessToken({ sub: user.id, role: user.role, email: user.email ?? undefined });
   const refreshToken = signRefreshToken({ sub: user.id, jti: crypto.randomUUID() });
   const refreshHash = await argon2.hash(refreshToken, { type: argon2.argon2id });
   await prisma.user.update({ where: { id: user.id }, data: { refreshTokenHash: refreshHash } });
   res.cookie('mm_access', accessToken, COOKIE_OPTS_ACCESS);
   res.cookie('mm_refresh', refreshToken, COOKIE_OPTS_REFRESH);
-  logger.info({ userId: user.id, channel: parsed.kind }, 'User verified with OTP');
+  logger.info({ userId: user.id, channel: 'email' }, 'User verified with OTP');
   successResponse(res, { user: formatUser(user) });
 }
 
@@ -406,7 +396,7 @@ export async function verifySignupOtp(req: Request, res: Response): Promise<void
   const user = await prisma.user.create({
     data: { ...challenge.signup, passwordHash, phoneVerifiedAt: new Date() },
     select: {
-      id: true, name: true, email: true, phone: true, role: true,
+      id: true, name: true, email: true, phone: true, upiId: true, role: true,
       district: true, preferredLanguage: true, profileDescription: true,
       rating: true, completedDealsCount: true, createdAt: true,
     },
@@ -459,7 +449,7 @@ export async function register(req: Request, res: Response): Promise<void> {
       profileDescription: data.profileDescription ?? null,
     },
     select: {
-      id: true, name: true, email: true, phone: true, role: true,
+      id: true, name: true, email: true, phone: true, upiId: true, role: true,
       district: true, preferredLanguage: true, profileDescription: true,
       rating: true, completedDealsCount: true, createdAt: true,
     },
@@ -490,7 +480,7 @@ export async function login(req: Request, res: Response): Promise<void> {
       ? { email: query }
       : { phone: query.replace(/[\s\-]/g, '') },
     select: {
-      id: true, name: true, email: true, phone: true, role: true,
+      id: true, name: true, email: true, phone: true, upiId: true, role: true,
       district: true, preferredLanguage: true, profileDescription: true,
       rating: true, completedDealsCount: true, createdAt: true,
       passwordHash: true, isActive: true,
@@ -540,7 +530,7 @@ export async function me(req: Request, res: Response): Promise<void> {
   const user = await prisma.user.findUnique({
     where: { id: req.user!.id },
     select: {
-      id: true, name: true, email: true, phone: true, role: true,
+      id: true, name: true, email: true, phone: true, upiId: true, role: true,
       district: true, preferredLanguage: true, profileDescription: true,
       rating: true, completedDealsCount: true, createdAt: true,
       isActive: true,
@@ -552,6 +542,16 @@ export async function me(req: Request, res: Response): Promise<void> {
     return;
   }
 
+  successResponse(res, { user });
+}
+
+export async function updateUpi(req: Request, res: Response): Promise<void> {
+  const upiId = (req.body as { upiId: string }).upiId.trim();
+  const user = await prisma.user.update({
+    where: { id: req.user!.id },
+    data: { upiId },
+    select: { id: true, upiId: true },
+  });
   successResponse(res, { user });
 }
 

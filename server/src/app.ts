@@ -23,6 +23,7 @@ import notificationsRoutes from './modules/notifications/notifications.routes';
 import fpoRoutes from './modules/fpo/fpo.routes';
 import waitlistRoutes from './modules/waitlist/waitlist.routes';
 import cropsRoutes from './modules/crops/crops.routes';
+import supportRoutes from './modules/support/support.routes';
 
 export function createApp(): Express {
   const app = express();
@@ -113,6 +114,7 @@ export function createApp(): Express {
   app.use('/api/v1/fpo', fpoRoutes);
   app.use('/api/v1/waitlist', waitlistRoutes);
   app.use('/api/v1/crops', cropsRoutes);
+  app.use('/api/v1/support/reports', supportRoutes);
 
   // 404 handler for unknown routes
   app.use((req: Request, res: Response) => {

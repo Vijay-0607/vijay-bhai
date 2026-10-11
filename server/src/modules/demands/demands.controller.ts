@@ -103,6 +103,10 @@ export async function updateDemand(req: Request, res: Response): Promise<void> {
     errorResponse(res, 409, 'INVALID_STATE', `Cannot update a ${demand.status.toLowerCase()} demand`);
     return;
   }
+  if (data.quantityQtl !== undefined && demand.status !== 'ACTIVE') {
+    errorResponse(res, 409, 'INVALID_STATE', 'Quantity can only be edited while the requirement is fully active.');
+    return;
+  }
 
   if (data.status === 'CANCELLED') {
     const activeDeals = await prisma.deal.count({
@@ -118,7 +122,7 @@ export async function updateDemand(req: Request, res: Response): Promise<void> {
     where: { id: demand.id },
     data: {
       ...(crop ? { crop } : {}),
-      ...(data.quantityQtl !== undefined ? { quantityQtl: data.quantityQtl } : {}),
+      ...(data.quantityQtl !== undefined ? { quantityQtl: data.quantityQtl, remainingQuantityQtl: data.quantityQtl } : {}),
       ...(data.deliveryDate ? { deliveryDate: new Date(data.deliveryDate) } : {}),
       ...(data.maxPricePerQtl !== undefined ? { maxPricePerQtl: data.maxPricePerQtl } : {}),
       ...(data.district ? { district: data.district } : {}),

@@ -11,6 +11,7 @@ import MatchesPage from '../pages/MatchesPage';
 import PricesPage from '../pages/PricesPage';
 import ProfilePage from '../pages/ProfilePage';
 import NotificationsPage from '../pages/NotificationsPage';
+import SupportPage from '../pages/SupportPage';
 import { Navbar } from '../components/common/Navbar';
 import { Sidebar } from '../components/common/Sidebar';
 import { MobileNav } from '../components/common/MobileNav';
@@ -47,6 +48,7 @@ export function AppRoutes() {
       <Route path="/prices" element={<ProtectedLayout><PricesPage /></ProtectedLayout>} />
       <Route path="/profile" element={<ProtectedLayout><ProfilePage /></ProtectedLayout>} />
       <Route path="/notifications" element={<ProtectedLayout><NotificationsPage /></ProtectedLayout>} />
+      <Route path="/support" element={<ProtectedLayout><SupportPage /></ProtectedLayout>} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );

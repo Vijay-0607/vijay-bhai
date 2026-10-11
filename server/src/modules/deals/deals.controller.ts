@@ -3,6 +3,7 @@ import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse, parsePagination, buildMeta } from '../../utils/apiResponse';
 import { createNotification } from '../notifications/notifications.service';
 import { UpdateDealStatusInput, CreateDealReviewInput } from './deals.schema';
+import { env } from '../../config/env';
 
 const DEAL_INCLUDE = {
   listing: { select: { id: true, crop: true, district: true, harvestDate: true } },
@@ -106,6 +107,50 @@ export async function getDeal(req: Request, res: Response): Promise<void> {
   }
 
   successResponse(res, formatDeal(deal));
+}
+
+export async function getPaymentHistory(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.id;
+  const payments = await prisma.dealPayment.findMany({
+    where: { OR: [{ buyerId: userId }, { farmerId: userId }] },
+    orderBy: { createdAt: 'desc' },
+    include: { deal: { select: { offerId: true, buyer: { select: { name: true } }, farmer: { select: { name: true } } } } },
+  });
+  successResponse(res, { payments: payments.map((payment) => ({
+    id: payment.id, dealId: payment.dealId, offerId: payment.deal.offerId ?? payment.dealId,
+    buyerId: payment.buyerId, farmerId: payment.farmerId,
+    buyerUpiId: payment.buyerUpiId, farmerUpiId: payment.farmerUpiId, platformUpiId: payment.platformUpiId,
+    buyerName: payment.deal.buyer.name, farmerName: payment.deal.farmer.name, method: 'upi',
+    produceAmount: Number(payment.produceAmount), platformFee: Number(payment.platformFee), totalPaid: Number(payment.totalAmount),
+    status: 'recorded_demo', createdAt: payment.createdAt.toISOString(),
+  })) });
+}
+
+export async function getPaymentSettings(_req: Request, res: Response): Promise<void> {
+  successResponse(res, { platformUpiId: env.PLATFORM_UPI_ID ?? null });
+}
+
+export async function createDealPayment(req: Request, res: Response): Promise<void> {
+  const dealId = req.params.id as string;
+  const buyerId = req.user!.id;
+  const platformUpiId = env.PLATFORM_UPI_ID;
+  if (!platformUpiId) { errorResponse(res, 503, 'PAYMENT_NOT_CONFIGURED', 'Platform UPI has not been configured yet'); return; }
+  const deal = await prisma.deal.findUnique({
+    where: { id: dealId },
+    include: { buyer: { select: { id: true, name: true, upiId: true } }, farmer: { select: { id: true, name: true, upiId: true } } },
+  });
+  if (!deal) { errorResponse(res, 404, 'NOT_FOUND', 'Deal not found'); return; }
+  if (deal.buyerId !== buyerId) { errorResponse(res, 403, 'FORBIDDEN', 'Only the buyer on this deal can record payment'); return; }
+  if (!['CONFIRMED', 'IN_PROGRESS'].includes(deal.status)) { errorResponse(res, 409, 'INVALID_STATE', 'Payment can only be recorded for a confirmed deal'); return; }
+  if (!deal.buyer.upiId || !deal.farmer.upiId) { errorResponse(res, 409, 'UPI_REQUIRED', 'Both participants must save their UPI IDs before payment'); return; }
+  const previous = await prisma.dealPayment.findUnique({ where: { dealId } });
+  if (previous) { errorResponse(res, 409, 'PAYMENT_EXISTS', 'A payment record already exists for this deal'); return; }
+  const produceAmount = Number(deal.totalValue);
+  const platformFee = Number(deal.commissionAmount);
+  const payment = await prisma.dealPayment.create({
+    data: { dealId, buyerId, farmerId: deal.farmerId, buyerUpiId: deal.buyer.upiId, farmerUpiId: deal.farmer.upiId, platformUpiId, produceAmount, platformFee, totalAmount: produceAmount + platformFee },
+  });
+  successResponse(res, { payment: { id: payment.id, dealId, offerId: deal.offerId ?? dealId, buyerId, farmerId: deal.farmerId, buyerName: deal.buyer.name, farmerName: deal.farmer.name, buyerUpiId: payment.buyerUpiId, farmerUpiId: payment.farmerUpiId, platformUpiId: payment.platformUpiId, method: 'upi', produceAmount, platformFee, totalPaid: produceAmount + platformFee, status: 'recorded_demo', createdAt: payment.createdAt.toISOString() } }, 201);
 }
 
 export async function updateDealStatus(req: Request, res: Response): Promise<void> {
@@ -284,7 +329,7 @@ export async function createDealReview(req: Request, res: Response): Promise<voi
   const input = req.body as CreateDealReviewInput;
   try {
     const review = await prisma.$transaction(async (tx) => {
-      const created = await tx.dealReview.create({ data: { dealId: deal.id, authorId: userId, subjectId, rating: input.rating, comment: input.comment ?? null } });
+      const created = await tx.dealReview.create({ data: { dealId: deal.id, authorId: userId, subjectId, rating: input.rating, comment: input.comment ?? null, deliveryOnTime: input.deliveryOnTime, qualityMatched: input.qualityMatched, communication: input.communication } });
       const aggregate = await tx.dealReview.aggregate({ where: { subjectId }, _avg: { rating: true } });
       await tx.user.update({ where: { id: subjectId }, data: { rating: aggregate._avg.rating ?? 5 } });
       return created;

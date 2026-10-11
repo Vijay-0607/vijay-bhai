@@ -14,6 +14,13 @@ export const dealQuerySchema = z.object({
 export const createDealReviewSchema = z.object({
   rating: z.number().int().min(1).max(5),
   comment: z.string().trim().max(500).optional(),
+  deliveryOnTime: z.enum(['YES', 'PARTLY', 'NO']),
+  qualityMatched: z.enum(['YES', 'PARTLY', 'NO']),
+  communication: z.enum(['GREAT', 'OKAY', 'DIFFICULT']),
+});
+
+export const createDealPaymentSchema = z.object({
+  // Payment destinations come from trusted server configuration, never the buyer's request.
 });
 
 export type UpdateDealStatusInput = z.infer<typeof updateDealStatusSchema>;

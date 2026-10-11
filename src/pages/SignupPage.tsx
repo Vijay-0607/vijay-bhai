@@ -24,6 +24,7 @@ function toVerifiedProfile(user: Record<string, unknown>, identifier: string): U
     name: String(user.name ?? 'MandiMatch user'),
     emailOrPhone: email || phone || identifier,
     phone: phone || undefined,
+    upiId: typeof user.upiId === 'string' ? user.upiId : undefined,
     role,
     district: String(user.district ?? ''),
     language,

@@ -15,6 +15,7 @@ export interface UserProfile {
   language: Language;
   bio?: string;
   phone?: string;
+  upiId?: string;
   rating?: number;
   completedDealsCount?: number;
   isDemoVerified?: boolean;
@@ -33,12 +34,14 @@ export interface HarvestListing {
   askingPricePerQuintal: number;
   district: string;
   createdAt: string;
+  updatedAt?: string;
   notes?: string;
   grade?: string;
   photoUrls?: string[];
   phoneVerified?: boolean;
   fpoVerified?: boolean;
   farmerRating?: number;
+  status?: string;
 }
 
 export interface BuyerDemand {
@@ -47,11 +50,14 @@ export interface BuyerDemand {
   buyerName: string;
   crop: CropType;
   requiredQuantityQuintals: number;
+  totalRequiredQuantityQuintals?: number;
   deliveryDate: string; // ISO date string YYYY-MM-DD
   maxPricePerQuintal: number;
   district: string;
   createdAt: string;
+  updatedAt?: string;
   notes?: string;
+  status?: string;
 }
 
 export type OfferStatus = 'pending' | 'negotiating' | 'confirmed' | 'completed' | 'rejected' | 'withdrawn';
@@ -87,7 +93,28 @@ export interface DealOffer {
   updatedAt: string;
   farmerPhone?: string;
   buyerPhone?: string;
+  farmerUpiId?: string;
+  buyerUpiId?: string;
   dealId?: string;
+}
+
+export type PaymentMethod = 'upi' | 'bank_transfer' | 'cash';
+export interface DealPayment {
+  id: string;
+  offerId: string;
+  buyerId: string;
+  farmerId: string;
+  buyerName: string;
+  farmerName: string;
+  method: PaymentMethod;
+  buyerUpiId: string;
+  farmerUpiId: string;
+  platformUpiId: string;
+  produceAmount: number;
+  platformFee: number;
+  totalPaid: number;
+  status: 'recorded_demo';
+  createdAt: string;
 }
 
 export interface SmartMatch {

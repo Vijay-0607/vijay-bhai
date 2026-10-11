@@ -7,12 +7,12 @@ export const INDIAN_STATES_AND_UTS = [
   'Tamil Nadu', 'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal',
 ] as const;
 
-// MandiMatch currently serves Karnataka. Keep its complete district list ready
-// for the launch area; other states allow the user to enter their district.
-export const KARNATAKA_DISTRICTS = [
-  'Bagalkote', 'Ballari', 'Belagavi', 'Bengaluru Rural', 'Bengaluru Urban', 'Bidar',
-  'Chamarajanagar', 'Chikkaballapura', 'Chikkamagaluru', 'Chitradurga', 'Dakshina Kannada',
-  'Davanagere', 'Dharwad', 'Gadag', 'Hassan', 'Haveri', 'Kalaburagi', 'Kodagu', 'Kolar',
-  'Koppal', 'Mandya', 'Mysuru', 'Raichur', 'Ramanagara', 'Shivamogga', 'Tumakuru',
-  'Udupi', 'Uttara Kannada', 'Vijayanagara', 'Vijayapura', 'Yadgir', 'Hubballi',
-] as const;
+import indiaStatesDistricts from './indiaStatesDistricts.json';
+
+// District choices for every Indian state and union territory.
+export const INDIAN_DISTRICTS_BY_STATE: Record<string, string[]> = Object.fromEntries(
+  indiaStatesDistricts.map(({ name, districts }) => [
+    name,
+    districts.map(({ name: districtName }) => districtName),
+  ]),
+);

@@ -11,9 +11,9 @@ import {
 import { SEED_LISTINGS, SEED_DEMANDS, SEED_OFFERS } from '../data/seedData';
 import { calculateDealValue, calculateCommission } from '../utils/commission';
 import { useNotificationStore } from './notificationStore';
+import { useAuthStore } from './authStore';
 import { normalizeCropIdentifier } from '../data/cropCatalog';
 import { apiRequest, isBackendAccount } from '../lib/api';
-import { useAuthStore } from './authStore';
 
 interface MarketplaceState {
   listings: HarvestListing[];
@@ -22,6 +22,8 @@ interface MarketplaceState {
   priceAlerts: PriceAlert[];
   waitlist: WaitlistEntry[];
   refreshBackend: () => Promise<void>;
+  updateBackendListing: (id: string, data: Record<string, unknown>) => Promise<void>;
+  updateBackendDemand: (id: string, data: Record<string, unknown>) => Promise<void>;
   publishBackendListing: (data: Record<string, unknown>) => Promise<void>;
   publishBackendDemand: (data: Record<string, unknown>) => Promise<void>;
   cancelBackendListing: (id: string) => Promise<void>;
@@ -29,7 +31,7 @@ interface MarketplaceState {
   createBackendOffer: (data: { listingId: string; demandId: string; quantity: number; price: number; note?: string }) => Promise<void>;
   respondBackendOffer: (offerId: string, action: 'accept' | 'reject' | 'counter', values?: { price: number; quantity: number }) => Promise<void>;
   completeBackendDeal: (offerId: string) => Promise<void>;
-  reviewBackendDeal: (dealId: string, rating: number, comment: string) => Promise<void>;
+  reviewBackendDeal: (dealId: string, rating: number, comment: string, answers: { deliveryOnTime: string; qualityMatched: string; communication: string }) => Promise<void>;
 
   // Listings Actions
   addListing: (listing: Omit<HarvestListing, 'id' | 'createdAt' | 'availableQuantityQuintals'>) => HarvestListing;
@@ -132,21 +134,25 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   refreshBackend: async () => {
     const user = useAuthStore.getState().currentUser;
     if (!user || !isBackendAccount(user.id)) return;
-    const [listingResult, demandResult, offerResult] = await Promise.all([
+    const [listingResult, demandResult, offerResult, myListingResult, myDemandResult] = await Promise.all([
       apiRequest<{ listings: any[] }>('/listings?pageSize=100'),
       apiRequest<{ demands: any[] }>('/demands?pageSize=100'),
       apiRequest<{ offers: any[] }>('/offers?pageSize=100'),
+      apiRequest<{ listings: any[] }>('/listings/mine?pageSize=100'),
+      apiRequest<{ demands: any[] }>('/demands/mine?pageSize=100'),
     ]);
-    const listings: HarvestListing[] = listingResult.listings.map((item) => ({
+    const listingItems = [...new Map([...listingResult.listings, ...myListingResult.listings].map((item) => [item.id, item])).values()];
+    const demandItems = [...new Map([...demandResult.demands, ...myDemandResult.demands].map((item) => [item.id, item])).values()];
+    const listings: HarvestListing[] = listingItems.map((item) => ({
       id: item.id, farmerId: item.farmerId, farmerName: item.farmer?.name ?? 'Farmer', farmerRole: item.farmer?.role === 'FPO' ? 'fpo' : 'farmer',
       crop: normalizeCropIdentifier(item.crop), quantityQuintals: Number(item.quantityQtl), availableQuantityQuintals: Number(item.remainingQuantityQtl),
       expectedHarvestDate: String(item.harvestDate).slice(0, 10), askingPricePerQuintal: Number(item.askingPricePerQtl), district: item.district,
-      createdAt: item.createdAt, notes: item.description ?? undefined, grade: item.cropGrade ?? undefined, photoUrls: item.photoUrls ?? [], phoneVerified: Boolean(item.farmer?.phoneVerifiedAt), fpoVerified: Boolean(item.fpo?.isVerified), farmerRating: Number(item.farmer?.rating ?? 5),
+      createdAt: item.createdAt, updatedAt: item.updatedAt, notes: item.description ?? undefined, grade: item.cropGrade ?? undefined, photoUrls: item.photoUrls ?? [], phoneVerified: Boolean(item.farmer?.phoneVerifiedAt), fpoVerified: Boolean(item.fpo?.isVerified), farmerRating: Number(item.farmer?.rating ?? 5), status: item.status,
     }));
-    const demands: BuyerDemand[] = demandResult.demands.map((item) => ({
+    const demands: BuyerDemand[] = demandItems.map((item) => ({
       id: item.id, buyerId: item.buyerId, buyerName: item.buyer?.name ?? 'Buyer', crop: normalizeCropIdentifier(item.crop),
-      requiredQuantityQuintals: Number(item.remainingQuantityQtl), deliveryDate: String(item.deliveryDate).slice(0, 10), maxPricePerQuintal: Number(item.maxPricePerQtl),
-      district: item.district, createdAt: item.createdAt, notes: item.description ?? undefined,
+      requiredQuantityQuintals: Number(item.remainingQuantityQtl), totalRequiredQuantityQuintals: Number(item.quantityQtl), deliveryDate: String(item.deliveryDate).slice(0, 10), maxPricePerQuintal: Number(item.maxPricePerQtl),
+      district: item.district, createdAt: item.createdAt, updatedAt: item.updatedAt, notes: item.description ?? undefined, status: item.status,
     }));
     const offers: DealOffer[] = offerResult.offers.map((item) => ({
       id: item.id, listingId: item.listingId, demandId: item.demandId ?? undefined, farmerId: item.farmerId, farmerName: item.farmer?.name ?? 'Farmer',
@@ -157,12 +163,15 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       history: (item.history ?? []).map((entry: any) => ({ id: entry.id, senderId: entry.senderId, senderName: entry.senderId === item.farmerId ? item.farmer?.name : item.buyer?.name,
         pricePerQuintal: Number(entry.pricePerQtl), quantityQuintals: Number(entry.quantityQtl), note: entry.note ?? undefined, timestamp: entry.createdAt })),
       farmerPhone: item.contacts?.farmerPhone, buyerPhone: item.contacts?.buyerPhone,
+      farmerUpiId: item.contacts?.farmerUpiId, buyerUpiId: item.contacts?.buyerUpiId,
       dealId: item.deal?.id,
     }));
     set({ listings, demands, offers });
   },
   publishBackendListing: async (data) => { await apiRequest('/listings', { method: 'POST', body: JSON.stringify(data) }); await get().refreshBackend(); },
   publishBackendDemand: async (data) => { await apiRequest('/demands', { method: 'POST', body: JSON.stringify(data) }); await get().refreshBackend(); },
+  updateBackendListing: async (id, data) => { await apiRequest(`/listings/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); await get().refreshBackend(); },
+  updateBackendDemand: async (id, data) => { await apiRequest(`/demands/${id}`, { method: 'PATCH', body: JSON.stringify(data) }); await get().refreshBackend(); },
   cancelBackendListing: async (id) => { await apiRequest(`/listings/${id}`, { method: 'DELETE' }); await get().refreshBackend(); },
   cancelBackendDemand: async (id) => { await apiRequest(`/demands/${id}`, { method: 'DELETE' }); await get().refreshBackend(); },
   createBackendOffer: async ({ listingId, demandId, quantity, price, note }) => {
@@ -182,8 +191,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     await apiRequest(`/deals/${deal.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'COMPLETED' }) });
     await get().refreshBackend();
   },
-  reviewBackendDeal: async (dealId, rating, comment) => {
-    await apiRequest(`/deals/${dealId}/reviews`, { method: 'POST', body: JSON.stringify({ rating, comment }) });
+  reviewBackendDeal: async (dealId, rating, comment, answers) => {
+    await apiRequest(`/deals/${dealId}/reviews`, { method: 'POST', body: JSON.stringify({ rating, comment, ...answers }) });
   },
 
   addListing: (listingData) => {
@@ -216,7 +225,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
   updateListing: (id, updates) => {
     const updated = get().listings.map((item) =>
-      item.id === id ? { ...item, ...updates } : item
+      item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
     );
     try {
       localStorage.setItem(STORAGE_KEY_LISTINGS, JSON.stringify(updated));
@@ -235,6 +244,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   addDemand: (demandData) => {
     const newDemand: BuyerDemand = {
       ...demandData,
+      totalRequiredQuantityQuintals: demandData.requiredQuantityQuintals,
       id: `demand-${Date.now()}`,
       createdAt: new Date().toISOString(),
     };
@@ -261,7 +271,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
   updateDemand: (id, updates) => {
     const updated = get().demands.map((item) =>
-      item.id === id ? { ...item, ...updates } : item
+      item.id === id ? { ...item, ...updates, updatedAt: new Date().toISOString() } : item
     );
     try {
       localStorage.setItem(STORAGE_KEY_DEMANDS, JSON.stringify(updated));
@@ -296,6 +306,12 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
 
     const recipientId =
       params.initialSenderId === params.buyerId ? params.farmerId : params.buyerId;
+    const accountUsers = useAuthStore.getState().users;
+    const farmerPhone = accountUsers.find((user) => user.id === params.farmerId)?.phone;
+    const buyerPhone = accountUsers.find((user) => user.id === params.buyerId)?.phone;
+    if (!farmerPhone || !buyerPhone) {
+      return { success: false, message: 'Both the farmer and buyer need a phone number on their account before making an offer.' };
+    }
 
     const dealValue = calculateDealValue(params.pricePerQuintal, params.quantityQuintals);
     const commission = calculateCommission(dealValue, 2.5);
@@ -308,6 +324,8 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       farmerName: params.farmerName,
       buyerId: params.buyerId,
       buyerName: params.buyerName,
+      farmerPhone,
+      buyerPhone,
       crop,
       quantityQuintals: params.quantityQuintals,
       pricePerQuintal: params.pricePerQuintal,
@@ -375,12 +393,27 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
     }
 
     const nextStatus: OfferStatus = action === 'accept' ? 'confirmed' : 'rejected';
+    const accountUsers = useAuthStore.getState().users;
+    const farmerPhone = accountUsers.find((user) => user.id === offer.farmerId)?.phone ?? offer.farmerPhone;
+    const buyerPhone = accountUsers.find((user) => user.id === offer.buyerId)?.phone ?? offer.buyerPhone;
+    if (action === 'accept' && (!farmerPhone || !buyerPhone)) {
+      return { success: false, message: 'Both the farmer and buyer must add a phone number before confirming this deal.' };
+    }
+    if (action === 'accept') {
+      const farmer = accountUsers.find((user) => user.id === offer.farmerId);
+      const buyer = accountUsers.find((user) => user.id === offer.buyerId);
+      if (!farmer?.upiId || !buyer?.upiId) {
+        return { success: false, message: 'Both the farmer and buyer must save a UPI ID in their profile before confirming this deal.' };
+      }
+    }
     const otherUserId = currentUserId === offer.farmerId ? offer.buyerId : offer.farmerId;
     const actorName = currentUserId === offer.farmerId ? offer.farmerName : offer.buyerName;
 
     const updatedOffer: DealOffer = {
       ...offer,
       status: nextStatus,
+      farmerPhone,
+      buyerPhone,
       currentTurnUserId: 'none',
       updatedAt: new Date().toISOString(),
       history: [
@@ -406,7 +439,7 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
       set({ listings: updatedListings });
       if (demand) {
         const updatedDemands = get().demands.map((item) => item.id === demand.id
-          ? { ...item, requiredQuantityQuintals: item.requiredQuantityQuintals - offer.quantityQuintals }
+          ? { ...item, totalRequiredQuantityQuintals: item.totalRequiredQuantityQuintals ?? item.requiredQuantityQuintals, requiredQuantityQuintals: item.requiredQuantityQuintals - offer.quantityQuintals }
           : item);
         try { localStorage.setItem(STORAGE_KEY_DEMANDS, JSON.stringify(updatedDemands)); } catch {}
         set({ demands: updatedDemands });

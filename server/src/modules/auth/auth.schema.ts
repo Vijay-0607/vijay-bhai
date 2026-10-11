@@ -26,12 +26,16 @@ export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
 });
 
+export const updateUpiSchema = z.object({
+  upiId: z.string().trim().regex(/^[\w.-]{2,256}@[\w.-]{2,64}$/, 'Enter a valid UPI ID'),
+});
+
 export const otpRequestSchema = z.object({
-  identifier: z.string().trim().min(3).max(254),
+  email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
 });
 
 export const otpVerifySchema = z.object({
-  identifier: z.string().trim().min(3).max(254),
+  email: z.string().trim().toLowerCase().email('Enter a valid email address').max(254),
   code: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
 });
 
@@ -43,7 +47,10 @@ export const signupOtpRequestSchema = z.object({
   preferredLanguage: z.enum(['EN', 'HI', 'KN']).default('EN'),
 });
 
-export const signupOtpVerifySchema = otpVerifySchema;
+export const signupOtpVerifySchema = z.object({
+  identifier: z.string().regex(/^(\+91[-\s]?)?[6-9]\d{9}$/, 'A valid Indian mobile number is required'),
+  code: z.string().regex(/^\d{6}$/, 'OTP must be 6 digits'),
+});
 
 export const forgotPasswordSchema = z.object({
   identifier: z.string().min(1, 'Email or phone is required'),
