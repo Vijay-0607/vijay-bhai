@@ -11,5 +11,7 @@ export const addFpoMemberSchema = z.object({
   role: z.enum(['MEMBER', 'MANAGER']).default('MEMBER'),
 });
 
+export const verifyFpoSchema = z.object({ isVerified: z.boolean() });
+
 export type CreateFpoInput = z.infer<typeof createFpoSchema>;
 export type AddFpoMemberInput = z.infer<typeof addFpoMemberSchema>;

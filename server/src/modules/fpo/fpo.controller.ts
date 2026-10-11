@@ -75,6 +75,11 @@ export async function getMyFpo(req: Request, res: Response): Promise<void> {
   successResponse(res, fpo);
 }
 
+export async function verifyFpo(req: Request, res: Response): Promise<void> {
+  const fpo = await prisma.fPO.update({ where: { id: String(req.params.fpoId) }, data: { isVerified: Boolean(req.body.isVerified) } });
+  successResponse(res, { id: fpo.id, organizationName: fpo.organizationName, isVerified: fpo.isVerified });
+}
+
 export async function addFpoMember(req: Request, res: Response): Promise<void> {
   const userId = req.user!.id;
   const fpoId = req.params.fpoId as string;

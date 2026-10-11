@@ -1,3 +1,4 @@
+import { translateUi } from '../../locales/translateUi';
 import React from 'react';
 import { AlertCircle, ShieldAlert } from 'lucide-react';
 import { useLanguageStore } from '../../stores/languageStore';
@@ -29,7 +30,7 @@ export const DemoDisclaimerBanner: React.FC<{ compact?: boolean }> = ({ compact 
           </span>
         </div>
         <span className="hidden sm:inline-block text-[11px] text-gray-500 dark:text-gray-400 bg-white/60 dark:bg-black/30 px-2 py-0.5 rounded border border-gray-200/50 dark:border-gray-800">
-          Simulated APMC Benchmarks
+          {translateUi("Simulated APMC Benchmarks")}
         </span>
       </div>
     </div>

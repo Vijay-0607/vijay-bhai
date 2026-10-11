@@ -1,3 +1,4 @@
+import { translateUi } from '../../locales/translateUi';
 import React from 'react';
 import { OfferHistoryItem, OfferStatus } from '../../types';
 import { CheckCircle2, Clock, XCircle, ArrowRightLeft, ShieldCheck } from 'lucide-react';
@@ -52,7 +53,7 @@ export const DealTimeline: React.FC<DealTimelineProps> = ({ status, history }) =
                 {s === 'complete' ? <CheckCircle2 className="w-3.5 h-3.5" /> : idx + 1}
               </div>
               <span className="text-[10px] font-medium text-zinc-600 dark:text-zinc-400 mt-1 text-center">
-                {step.label}
+                {translateUi(step.label)}
               </span>
             </div>
           );
@@ -63,7 +64,7 @@ export const DealTimeline: React.FC<DealTimelineProps> = ({ status, history }) =
       {history.length > 0 && (
         <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800 space-y-2.5">
           <p className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-            Negotiation Audit Log
+            {translateUi("Negotiation Audit Log")}
           </p>
           <div className="space-y-2">
             {history.map((item, i) => (
@@ -76,7 +77,7 @@ export const DealTimeline: React.FC<DealTimelineProps> = ({ status, history }) =
                     {item.senderName}
                   </p>
                   <p className="text-zinc-600 dark:text-zinc-400 mt-0.5">
-                    Offered <span className="font-bold text-[#1E5E3A] dark:text-emerald-400">₹{item.pricePerQuintal}/q</span> for{' '}
+                    {translateUi("Offered")} <span className="font-bold text-[#1E5E3A] dark:text-emerald-400">₹{item.pricePerQuintal}/q</span> for{' '}
                     <span className="font-bold">{item.quantityQuintals} quintals</span>
                   </p>
                   {item.note && (

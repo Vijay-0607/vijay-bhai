@@ -73,6 +73,7 @@ model User {
   name                String
   email               String?  @unique
   phone               String?  @unique
+  phoneVerifiedAt     DateTime?
   passwordHash        String
   role                UserRole
   district            String
@@ -102,6 +103,8 @@ model User {
   priceAlerts    PriceAlert[]
   fpoOwned       FPO?     @relation("FPOOwner")
   fpoMemberships FPOMembership[]
+  reviewsGiven    DealReview[] @relation("ReviewAuthor")
+  reviewsReceived DealReview[] @relation("ReviewSubject")
 
   @@index([email])
   @@index([phone])
@@ -143,11 +146,13 @@ model FPO {
   organizationName String
   district         String
   description      String?
+  isVerified       Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
   owner   User            @relation("FPOOwner", fields: [ownerUserId], references: [id], onDelete: Cascade)
   members FPOMembership[]
+  listings Listing[]
 
   @@index([district])
 }
@@ -178,11 +183,14 @@ model Listing {
   askingPricePerQtl     Decimal       @db.Decimal(10, 2)
   district              String
   description           String?
+  cropGrade             String?
+  photoUrls             String[]      @default([])
   status                ListingStatus @default(ACTIVE)
   createdAt             DateTime      @default(now())
   updatedAt             DateTime      @updatedAt
 
   farmer  User        @relation(fields: [farmerId], references: [id])
+  fpo     FPO?        @relation(fields: [fpoId], references: [id], onDelete: SetNull)
   cropInfo CropCatalog @relation(fields: [crop], references: [slug], onDelete: Restrict)
   matches Match[]
   offers  Offer[]
@@ -328,11 +336,29 @@ model Deal {
   offer   Offer?  @relation(fields: [offerId], references: [id])
   farmer  User    @relation("DealFarmer", fields: [farmerId], references: [id])
   buyer   User    @relation("DealBuyer", fields: [buyerId], references: [id])
+  reviews DealReview[]
 
   @@index([farmerId])
   @@index([buyerId])
   @@index([listingId])
   @@index([status])
+}
+
+model DealReview {
+  id          String   @id @default(uuid())
+  dealId      String
+  authorId    String
+  subjectId   String
+  rating      Int
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  deal    Deal @relation(fields: [dealId], references: [id], onDelete: Cascade)
+  author  User @relation("ReviewAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  subject User @relation("ReviewSubject", fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@unique([dealId, authorId])
+  @@index([subjectId, createdAt(sort: Desc)])
 }
 
 // ─── Notification ─────────────────────────────────────────────────────────────

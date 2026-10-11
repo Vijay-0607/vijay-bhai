@@ -11,5 +11,11 @@ export const dealQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).optional(),
 });
 
+export const createDealReviewSchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  comment: z.string().trim().max(500).optional(),
+});
+
 export type UpdateDealStatusInput = z.infer<typeof updateDealStatusSchema>;
 export type DealQueryInput = z.infer<typeof dealQuerySchema>;
+export type CreateDealReviewInput = z.infer<typeof createDealReviewSchema>;

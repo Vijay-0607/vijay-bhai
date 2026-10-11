@@ -1,3 +1,4 @@
+import { translateUi } from '../../locales/translateUi';
 import React from 'react';
 import {
   BarChart,
@@ -29,14 +30,14 @@ export const DealsChart: React.FC<DealChartProps> = ({ data = DEFAULT_DATA }) =>
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-            Monthly Deals & Trade Volume
+            {translateUi("Monthly Deals & Trade Volume")}
           </h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Direct farmer-to-buyer transactions completed across Hubballi-Dharwad cluster
+            {translateUi("Direct farmer-to-buyer transactions completed across Hubballi-Dharwad cluster")}
           </p>
         </div>
         <span className="text-xs font-semibold px-2 py-1 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
-          +38% MoM
+          {translateUi("+38% MoM")}
         </span>
       </div>
 

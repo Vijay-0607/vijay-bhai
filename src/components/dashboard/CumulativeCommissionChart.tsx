@@ -1,3 +1,4 @@
+import { translateUi } from '../../locales/translateUi';
 import React from 'react';
 import {
   AreaChart,
@@ -28,10 +29,10 @@ export const CumulativeCommissionChart: React.FC<ChartProps> = ({ data = DEFAULT
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-base font-bold text-zinc-900 dark:text-zinc-100">
-            Platform Commission & Farmer Net Savings
+            {translateUi("Platform Commission & Farmer Net Savings")}
           </h3>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            Cumulative savings delivered to farmers by bypassing APMC middleman arbitrage
+            {translateUi("Cumulative savings delivered to farmers by bypassing APMC middleman arbitrage")}
           </p>
         </div>
       </div>

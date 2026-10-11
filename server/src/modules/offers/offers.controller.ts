@@ -9,25 +9,29 @@ import { Decimal } from '@prisma/client/runtime/library';
 const OFFER_INCLUDE = {
   listing: { select: { id: true, crop: true, district: true, farmer: { select: { id: true, name: true } } } },
   demand: { select: { id: true, crop: true, district: true, buyer: { select: { id: true, name: true } } } },
-  farmer: { select: { id: true, name: true } },
-  buyer: { select: { id: true, name: true } },
+  farmer: { select: { id: true, name: true, phone: true } },
+  buyer: { select: { id: true, name: true, phone: true } },
   history: { orderBy: { createdAt: 'asc' as const } },
+  deal: { select: { id: true, status: true } },
 };
 
 function formatOffer(o: any) {
+  const { farmer, buyer, ...publicOffer } = o;
   return {
-    ...o,
+    ...publicOffer,
+    farmer: farmer ? { id: farmer.id, name: farmer.name } : undefined,
+    buyer: buyer ? { id: buyer.id, name: buyer.name } : undefined,
     quantityQtl: parseFloat(o.quantityQtl),
     pricePerQtl: parseFloat(o.pricePerQtl),
     totalValue: parseFloat(o.totalValue),
     commission: parseFloat(o.commission),
+    ...(o.deal && ['ACCEPTED', 'COMPLETED'].includes(o.status) ? { contacts: { farmerPhone: farmer?.phone, buyerPhone: buyer?.phone } } : {}),
   };
 }
 
 export async function createOffer(req: Request, res: Response): Promise<void> {
   const data = req.body as CreateOfferInput;
-  const buyerId = req.user!.id;
-  const buyerName = req.user!.name;
+  const senderId = req.user!.id;
 
   // Verify listing exists and is available
   const listing = await prisma.listing.findUnique({
@@ -44,9 +48,15 @@ export async function createOffer(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  // Verify buyer is not the listing owner
-  if (listing.farmerId === buyerId) {
-    errorResponse(res, 403, 'FORBIDDEN', 'You cannot make an offer on your own listing');
+  const isFarmerSender = listing.farmerId === senderId;
+  let buyerId = senderId;
+  if (isFarmerSender) {
+    if (!data.demandId) { errorResponse(res, 400, 'DEMAND_REQUIRED', 'A farmer must link an offer to a buyer requirement.'); return; }
+    const targetDemand = await prisma.demand.findUnique({ where: { id: data.demandId }, select: { buyerId: true } });
+    if (!targetDemand) { errorResponse(res, 404, 'DEMAND_NOT_FOUND', 'Buyer requirement not found.'); return; }
+    buyerId = targetDemand.buyerId;
+  } else if (req.user!.role.toUpperCase() !== 'BUYER') {
+    errorResponse(res, 403, 'FORBIDDEN', 'Only the farmer who owns this listing or a buyer can make an offer.');
     return;
   }
 
@@ -89,7 +99,7 @@ export async function createOffer(req: Request, res: Response): Promise<void> {
         commission,
         message: data.message ?? null,
         status: 'PENDING',
-        currentTurnId: listing.farmerId, // Farmer responds first
+        currentTurnId: isFarmerSender ? buyerId : listing.farmerId,
       },
       include: OFFER_INCLUDE,
     });
@@ -97,7 +107,7 @@ export async function createOffer(req: Request, res: Response): Promise<void> {
     await tx.offerHistory.create({
       data: {
         offerId: newOffer.id,
-        senderId: buyerId,
+        senderId,
         pricePerQtl: data.pricePerQtl,
         quantityQtl: data.quantityQtl,
         note: data.message || 'Initial offer',
@@ -110,10 +120,10 @@ export async function createOffer(req: Request, res: Response): Promise<void> {
 
   // Notify farmer
   await createNotification({
-    userId: listing.farmerId,
+    userId: isFarmerSender ? buyerId : listing.farmerId,
     type: 'new_offer',
     title: `New Offer for ${listing.crop}`,
-    message: `${buyerName} offered ₹${data.pricePerQtl}/q for ${data.quantityQtl} quintals.`,
+    message: `${req.user!.name} offered ₹${data.pricePerQtl}/q for ${data.quantityQtl} quintals.`,
     relatedEntityType: 'Offer',
     relatedEntityId: offer.id,
     link: '/app/dashboard',
@@ -131,6 +141,8 @@ export async function getOffers(req: Request, res: Response): Promise<void> {
     ? { farmerId: userId }
     : role === 'BUYER'
     ? { buyerId: userId }
+    : role === 'FPO'
+    ? { farmerId: userId }
     : {};
 
   if (req.query.status) where.status = req.query.status;

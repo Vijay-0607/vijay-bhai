@@ -1,4 +1,6 @@
+import { translateUi } from '../../locales/translateUi';
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 interface MetricCardProps {
   title: string;
@@ -8,6 +10,8 @@ interface MetricCardProps {
   isPositive?: boolean;
   icon?: React.ReactNode;
   accentColor?: string;
+  to?: string;
+  actionLabel?: string;
 }
 
 export const MetricCard: React.FC<MetricCardProps> = ({
@@ -18,12 +22,14 @@ export const MetricCard: React.FC<MetricCardProps> = ({
   isPositive,
   icon,
   accentColor = 'emerald',
+  to,
+  actionLabel,
 }) => {
-  return (
-    <div className="relative overflow-hidden p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm hover:shadow-md transition-shadow">
+  const card = (
+    <div className={`relative h-full overflow-hidden p-5 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 shadow-sm transition-shadow ${to ? 'hover:shadow-md hover:border-emerald-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald-600' : 'hover:shadow-md'}`}>
       <div className="flex items-center justify-between">
         <p className="text-xs font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-          {title}
+          {translateUi(title)}
         </p>
         {icon && (
           <div className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-700 dark:text-zinc-300">
@@ -50,13 +56,16 @@ export const MetricCard: React.FC<MetricCardProps> = ({
           )}
           {subtitle && (
             <span className="text-xs text-zinc-500 dark:text-zinc-400 truncate">
-              {subtitle}
+              {translateUi(subtitle)}
             </span>
           )}
         </div>
+        {actionLabel && <span className="mt-2 inline-flex text-xs font-semibold text-emerald-700 dark:text-emerald-400">{translateUi(actionLabel)} →</span>}
       </div>
     </div>
   );
+
+  return to ? <Link to={to} aria-label={`${translateUi(title)}: ${value}. ${translateUi(actionLabel ?? 'Open details')}`} className="block rounded-2xl">{card}</Link> : card;
 };
 
 export default MetricCard;

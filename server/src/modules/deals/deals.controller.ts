@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse, parsePagination, buildMeta } from '../../utils/apiResponse';
 import { createNotification } from '../notifications/notifications.service';
-import { UpdateDealStatusInput } from './deals.schema';
+import { UpdateDealStatusInput, CreateDealReviewInput } from './deals.schema';
 
 const DEAL_INCLUDE = {
   listing: { select: { id: true, crop: true, district: true, harvestDate: true } },
@@ -269,4 +269,29 @@ export async function getDealStats(req: Request, res: Response): Promise<void> {
     totalCommission: Math.round(totalCommission * 100) / 100,
     totalVolumeQtl: Math.round(totalVolumeQtl * 100) / 100,
   });
+}
+
+export async function createDealReview(req: Request, res: Response): Promise<void> {
+  const userId = req.user!.id;
+  const deal = await prisma.deal.findUnique({ where: { id: String(req.params.id) } });
+  if (!deal || (deal.farmerId !== userId && deal.buyerId !== userId)) {
+    errorResponse(res, 404, 'NOT_FOUND', 'Deal not found.'); return;
+  }
+  if (deal.status !== 'COMPLETED') {
+    errorResponse(res, 409, 'DEAL_NOT_COMPLETED', 'Reviews are available after a deal is completed.'); return;
+  }
+  const subjectId = deal.farmerId === userId ? deal.buyerId : deal.farmerId;
+  const input = req.body as CreateDealReviewInput;
+  try {
+    const review = await prisma.$transaction(async (tx) => {
+      const created = await tx.dealReview.create({ data: { dealId: deal.id, authorId: userId, subjectId, rating: input.rating, comment: input.comment ?? null } });
+      const aggregate = await tx.dealReview.aggregate({ where: { subjectId }, _avg: { rating: true } });
+      await tx.user.update({ where: { id: subjectId }, data: { rating: aggregate._avg.rating ?? 5 } });
+      return created;
+    });
+    successResponse(res, { review }, 201);
+  } catch (error: any) {
+    if (error?.code === 'P2002') { errorResponse(res, 409, 'REVIEW_EXISTS', 'You have already reviewed this deal.'); return; }
+    throw error;
+  }
 }

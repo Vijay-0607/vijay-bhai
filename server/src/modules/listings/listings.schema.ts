@@ -9,6 +9,8 @@ export const createListingSchema = z.object({
   askingPricePerQtl: z.number().positive('Price must be positive').max(100000),
   district: z.string().min(1).max(100).trim(),
   description: z.string().max(1000).optional(),
+  cropGrade: z.string().trim().max(80).optional(),
+  photoUrls: z.array(z.string().url()).max(8).optional(),
   fpoId: z.string().uuid().optional(),
 });
 

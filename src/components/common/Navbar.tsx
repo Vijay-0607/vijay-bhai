@@ -1,3 +1,4 @@
+import { translateUi } from '../../locales/translateUi';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
@@ -37,10 +38,10 @@ export const Navbar: React.FC = () => {
             </div>
             <div>
               <span className="text-xl font-bold tracking-tight bg-gradient-to-r from-[#1E5E3A] to-emerald-600 dark:from-emerald-400 dark:to-emerald-200 bg-clip-text text-transparent">
-                MandiMatch
+                {translateUi("MandiMatch")}
               </span>
               <span className="hidden sm:inline-block ml-2 text-xs font-semibold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                Direct APMC
+                {translateUi("Direct APMC")}
               </span>
             </div>
           </Link>
@@ -52,33 +53,33 @@ export const Navbar: React.FC = () => {
                 to="/dashboard"
                 className="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-emerald-50 dark:hover:bg-zinc-800/80 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors"
               >
-                Dashboard
+                {translateUi("Dashboard")}
               </Link>
               <Link
                 to="/matches"
                 className="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-emerald-50 dark:hover:bg-zinc-800/80 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors flex items-center gap-1.5"
               >
-                <span>Smart Matches</span>
+                <span>{translateUi("Smart Matches")}</span>
                 <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               </Link>
               <Link
                 to="/sell"
                 className="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-emerald-50 dark:hover:bg-zinc-800/80 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors"
               >
-                Sell Harvest
+                {translateUi("Sell Harvest")}
               </Link>
               <Link
                 to="/buy"
                 className="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-emerald-50 dark:hover:bg-zinc-800/80 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors"
               >
-                Buy Produce
+                {translateUi("Buy Produce")}
               </Link>
               <Link
                 to="/prices"
                 className="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-700 dark:text-zinc-200 hover:bg-emerald-50 dark:hover:bg-zinc-800/80 hover:text-emerald-700 dark:hover:text-emerald-400 transition-colors flex items-center gap-1"
               >
                 <TrendingUp className="w-3.5 h-3.5 text-amber-500" />
-                <span>Mandi Prices</span>
+                <span>{translateUi("Mandi Prices")}</span>
               </Link>
             </nav>
           )}
@@ -91,10 +92,10 @@ export const Navbar: React.FC = () => {
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as any)}
-                aria-label="Select preferred language"
+                aria-label={translateUi("Select preferred language")}
                 className="pl-7 pr-2 py-1 text-xs font-medium bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-200 rounded-lg border border-transparent focus:border-emerald-500 focus:outline-none cursor-pointer"
               >
-                <option value="en">EN</option>
+                <option value="en">{translateUi("EN")}</option>
                 <option value="hi">हिन्दी</option>
                 <option value="kn">ಕನ್ನಡ</option>
               </select>
@@ -104,7 +105,7 @@ export const Navbar: React.FC = () => {
             <button
               onClick={toggleTheme}
               className="p-2 rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-              title="Toggle theme"
+              title={translateUi("Toggle theme")}
             >
               {isDark ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
             </button>
@@ -114,7 +115,7 @@ export const Navbar: React.FC = () => {
               <Link
                 to="/notifications"
                 className="relative p-2 rounded-lg text-zinc-600 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"
-                title="Notifications"
+                title={translateUi("Notifications")}
               >
                 <Bell className="w-4 h-4" />
                 {unread > 0 && (
@@ -147,7 +148,7 @@ export const Navbar: React.FC = () => {
                 <button
                   onClick={logout}
                   className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-zinc-800 transition-colors"
-                  title="Logout"
+                  title={translateUi("Logout")}
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
@@ -158,7 +159,7 @@ export const Navbar: React.FC = () => {
                 className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-[#1E5E3A] hover:bg-emerald-700 text-white shadow-sm transition-all"
               >
                 <LogIn className="w-3.5 h-3.5" />
-                <span>Login</span>
+                <span>{translateUi("Login")}</span>
               </Link>
             )}
           </div>

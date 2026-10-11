@@ -23,9 +23,13 @@ export async function createListing(req: Request, res: Response): Promise<void> 
     return;
   }
 
-  // If fpoId is given, verify ownership
-  if (data.fpoId) {
-    const fpo = await prisma.fPO.findUnique({ where: { id: data.fpoId } });
+  // FPO listings inherit the owner's organization when one exists.
+  let fpoId = data.fpoId;
+  if (!fpoId && req.user!.role.toUpperCase() === 'FPO') {
+    fpoId = (await prisma.fPO.findUnique({ where: { ownerUserId: userId }, select: { id: true } }))?.id;
+  }
+  if (fpoId) {
+    const fpo = await prisma.fPO.findUnique({ where: { id: fpoId } });
     if (!fpo || fpo.ownerUserId !== userId) {
       errorResponse(res, 403, 'FORBIDDEN', 'You are not authorized to list on behalf of this FPO');
       return;
@@ -35,7 +39,7 @@ export async function createListing(req: Request, res: Response): Promise<void> 
   const listing = await prisma.listing.create({
     data: {
       farmerId: userId,
-      fpoId: data.fpoId ?? null,
+      fpoId: fpoId ?? null,
       crop,
       quantityQtl: data.quantityQtl,
       remainingQuantityQtl: data.quantityQtl,
@@ -43,8 +47,10 @@ export async function createListing(req: Request, res: Response): Promise<void> 
       askingPricePerQtl: data.askingPricePerQtl,
       district: data.district,
       description: data.description ?? null,
+      cropGrade: data.cropGrade ?? null,
+      photoUrls: data.photoUrls ?? [],
     },
-    include: { farmer: { select: { id: true, name: true, role: true } } },
+    include: { farmer: { select: { id: true, name: true, role: true, phoneVerifiedAt: true, rating: true } }, fpo: { select: { isVerified: true } } },
   });
 
   // Compute matches asynchronously
@@ -77,7 +83,7 @@ export async function getListings(req: Request, res: Response): Promise<void> {
       skip,
       take: pageSize,
       orderBy: { [q.sortBy ?? 'createdAt']: q.sortOrder ?? 'desc' },
-      include: { farmer: { select: { id: true, name: true, role: true } } },
+      include: { farmer: { select: { id: true, name: true, role: true, phoneVerifiedAt: true, rating: true } }, fpo: { select: { isVerified: true } } },
     }),
     prisma.listing.count({ where }),
   ]);
@@ -89,7 +95,7 @@ export async function getListing(req: Request, res: Response): Promise<void> {
   const id = req.params.id as string;
   const listing = await prisma.listing.findUnique({
     where: { id },
-    include: { farmer: { select: { id: true, name: true, role: true } } },
+    include: { farmer: { select: { id: true, name: true, role: true, phoneVerifiedAt: true, rating: true } }, fpo: { select: { isVerified: true } } },
   });
 
   if (!listing) {
@@ -139,9 +145,11 @@ export async function updateListing(req: Request, res: Response): Promise<void> 
       ...(data.askingPricePerQtl !== undefined ? { askingPricePerQtl: data.askingPricePerQtl } : {}),
       ...(data.district ? { district: data.district } : {}),
       ...(data.description !== undefined ? { description: data.description } : {}),
+      ...(data.cropGrade !== undefined ? { cropGrade: data.cropGrade } : {}),
+      ...(data.photoUrls !== undefined ? { photoUrls: data.photoUrls } : {}),
       ...(data.status ? { status: data.status as any } : {}),
     },
-    include: { farmer: { select: { id: true, name: true, role: true } } },
+    include: { farmer: { select: { id: true, name: true, role: true, phoneVerifiedAt: true, rating: true } }, fpo: { select: { isVerified: true } } },
   });
 
   // Invalidate & recompute matches

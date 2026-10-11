@@ -1,3 +1,4 @@
+import { translateUi } from '../../locales/translateUi';
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import { CheckCircle2, AlertCircle, Info, X } from 'lucide-react';
 
@@ -19,7 +20,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = `${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, message, type }]);
+    setToasts((prev) => [...prev, { id, message: translateUi(message), type }]);
 
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -60,7 +61,7 @@ export const ToastProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             <button
               onClick={() => removeToast(toast.id)}
               className="p-1 rounded-lg hover:bg-black/5 dark:hover:bg-white/10 text-gray-500 min-h-[32px] min-w-[32px] flex items-center justify-center"
-              aria-label="Dismiss toast"
+              aria-label={translateUi("Dismiss toast")}
             >
               <X className="w-4 h-4" />
             </button>

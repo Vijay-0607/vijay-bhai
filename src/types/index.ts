@@ -1,4 +1,4 @@
-export type UserRole = 'farmer' | 'buyer' | 'fpo';
+export type UserRole = 'farmer' | 'buyer' | 'fpo' | 'admin';
 
 export type Language = 'en' | 'hi' | 'kn';
 
@@ -34,6 +34,11 @@ export interface HarvestListing {
   district: string;
   createdAt: string;
   notes?: string;
+  grade?: string;
+  photoUrls?: string[];
+  phoneVerified?: boolean;
+  fpoVerified?: boolean;
+  farmerRating?: number;
 }
 
 export interface BuyerDemand {
@@ -49,7 +54,7 @@ export interface BuyerDemand {
   notes?: string;
 }
 
-export type OfferStatus = 'pending' | 'negotiating' | 'confirmed' | 'completed' | 'rejected';
+export type OfferStatus = 'pending' | 'negotiating' | 'confirmed' | 'completed' | 'rejected' | 'withdrawn';
 
 export interface OfferHistoryItem {
   id: string;
@@ -80,6 +85,9 @@ export interface DealOffer {
   district: string;
   createdAt: string;
   updatedAt: string;
+  farmerPhone?: string;
+  buyerPhone?: string;
+  dealId?: string;
 }
 
 export interface SmartMatch {

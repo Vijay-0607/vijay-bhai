@@ -67,8 +67,10 @@ export async function getUserPublicProfile(req: Request, res: Response): Promise
       rating: true,
       completedDealsCount: true,
       profileDescription: true,
+      phoneVerifiedAt: true,
       createdAt: true,
-      fpoOwned: { select: { organizationName: true, district: true } },
+      fpoOwned: { select: { organizationName: true, district: true, isVerified: true } },
+      reviewsReceived: { select: { id: true, rating: true, comment: true, createdAt: true, author: { select: { name: true } } }, orderBy: { createdAt: 'desc' }, take: 10 },
     },
   });
 

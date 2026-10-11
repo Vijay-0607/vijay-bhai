@@ -1,3 +1,4 @@
+import { translateUi } from '../../locales/translateUi';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
@@ -41,13 +42,13 @@ export const Sidebar: React.FC = () => {
       {currentUser && (
         <div className="p-3.5 mb-4 rounded-xl bg-gradient-to-br from-emerald-500/10 to-[#1E5E3A]/5 border border-emerald-500/20">
           <p className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 capitalize">
-            {currentUser.role} Account
+            {translateUi(currentUser.role === 'fpo' ? 'FPO' : currentUser.role === 'buyer' ? 'Buyer' : 'Farmer')} {translateUi('Account')}
           </p>
           <p className="text-sm font-bold text-zinc-900 dark:text-zinc-100 truncate">
             {currentUser.name}
           </p>
           <p className="text-xs text-zinc-500 dark:text-zinc-400">
-            📍 {currentUser.district} APMC cluster
+            📍 {currentUser.district} {translateUi('APMC cluster')}
           </p>
         </div>
       )}
@@ -70,7 +71,7 @@ export const Sidebar: React.FC = () => {
             >
               <div className="flex items-center gap-3">
                 <Icon className="w-4 h-4 shrink-0" />
-                <span>{link.label}</span>
+                <span>{translateUi(link.label)}</span>
               </div>
               {link.badge && (
                 <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 font-bold uppercase tracking-wider">
@@ -87,10 +88,10 @@ export const Sidebar: React.FC = () => {
         <div className="mt-auto p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-800/40 text-xs">
           <div className="flex items-center gap-2 text-amber-800 dark:text-amber-300 font-semibold mb-1">
             <Scale className="w-4 h-4 text-amber-600" />
-            <span>Active Negotiations</span>
+            <span>{translateUi("Active Negotiations")}</span>
           </div>
           <p className="text-zinc-600 dark:text-zinc-400">
-            You have <span className="font-bold text-amber-600 dark:text-amber-400">{userPendingOffers}</span> deal offer{userPendingOffers > 1 ? 's' : ''} in negotiation.
+            {translateUi("You have")} <span className="font-bold text-amber-600 dark:text-amber-400">{userPendingOffers}</span> {translateUi(userPendingOffers === 1 ? 'deal offer in negotiation.' : 'deal offers in negotiation.')}
           </p>
         </div>
       )}

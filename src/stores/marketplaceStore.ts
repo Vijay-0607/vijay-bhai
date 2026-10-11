@@ -12,6 +12,8 @@ import { SEED_LISTINGS, SEED_DEMANDS, SEED_OFFERS } from '../data/seedData';
 import { calculateDealValue, calculateCommission } from '../utils/commission';
 import { useNotificationStore } from './notificationStore';
 import { normalizeCropIdentifier } from '../data/cropCatalog';
+import { apiRequest, isBackendAccount } from '../lib/api';
+import { useAuthStore } from './authStore';
 
 interface MarketplaceState {
   listings: HarvestListing[];
@@ -19,6 +21,15 @@ interface MarketplaceState {
   offers: DealOffer[];
   priceAlerts: PriceAlert[];
   waitlist: WaitlistEntry[];
+  refreshBackend: () => Promise<void>;
+  publishBackendListing: (data: Record<string, unknown>) => Promise<void>;
+  publishBackendDemand: (data: Record<string, unknown>) => Promise<void>;
+  cancelBackendListing: (id: string) => Promise<void>;
+  cancelBackendDemand: (id: string) => Promise<void>;
+  createBackendOffer: (data: { listingId: string; demandId: string; quantity: number; price: number; note?: string }) => Promise<void>;
+  respondBackendOffer: (offerId: string, action: 'accept' | 'reject' | 'counter', values?: { price: number; quantity: number }) => Promise<void>;
+  completeBackendDeal: (offerId: string) => Promise<void>;
+  reviewBackendDeal: (dealId: string, rating: number, comment: string) => Promise<void>;
 
   // Listings Actions
   addListing: (listing: Omit<HarvestListing, 'id' | 'createdAt' | 'availableQuantityQuintals'>) => HarvestListing;
@@ -117,6 +128,63 @@ export const useMarketplaceStore = create<MarketplaceState>((set, get) => ({
   offers: loadOrSeed<DealOffer[]>(STORAGE_KEY_OFFERS, SEED_OFFERS, (items) => items.map((item) => ({ ...item, crop: normalizeCropIdentifier(item.crop) }))),
   priceAlerts: loadOrSeed<PriceAlert[]>(STORAGE_KEY_ALERTS, [], (items) => items.map((item) => ({ ...item, crop: normalizeCropIdentifier(item.crop) }))),
   waitlist: loadOrSeed<WaitlistEntry[]>(STORAGE_KEY_WAITLIST, []),
+
+  refreshBackend: async () => {
+    const user = useAuthStore.getState().currentUser;
+    if (!user || !isBackendAccount(user.id)) return;
+    const [listingResult, demandResult, offerResult] = await Promise.all([
+      apiRequest<{ listings: any[] }>('/listings?pageSize=100'),
+      apiRequest<{ demands: any[] }>('/demands?pageSize=100'),
+      apiRequest<{ offers: any[] }>('/offers?pageSize=100'),
+    ]);
+    const listings: HarvestListing[] = listingResult.listings.map((item) => ({
+      id: item.id, farmerId: item.farmerId, farmerName: item.farmer?.name ?? 'Farmer', farmerRole: item.farmer?.role === 'FPO' ? 'fpo' : 'farmer',
+      crop: normalizeCropIdentifier(item.crop), quantityQuintals: Number(item.quantityQtl), availableQuantityQuintals: Number(item.remainingQuantityQtl),
+      expectedHarvestDate: String(item.harvestDate).slice(0, 10), askingPricePerQuintal: Number(item.askingPricePerQtl), district: item.district,
+      createdAt: item.createdAt, notes: item.description ?? undefined, grade: item.cropGrade ?? undefined, photoUrls: item.photoUrls ?? [], phoneVerified: Boolean(item.farmer?.phoneVerifiedAt), fpoVerified: Boolean(item.fpo?.isVerified), farmerRating: Number(item.farmer?.rating ?? 5),
+    }));
+    const demands: BuyerDemand[] = demandResult.demands.map((item) => ({
+      id: item.id, buyerId: item.buyerId, buyerName: item.buyer?.name ?? 'Buyer', crop: normalizeCropIdentifier(item.crop),
+      requiredQuantityQuintals: Number(item.remainingQuantityQtl), deliveryDate: String(item.deliveryDate).slice(0, 10), maxPricePerQuintal: Number(item.maxPricePerQtl),
+      district: item.district, createdAt: item.createdAt, notes: item.description ?? undefined,
+    }));
+    const offers: DealOffer[] = offerResult.offers.map((item) => ({
+      id: item.id, listingId: item.listingId, demandId: item.demandId ?? undefined, farmerId: item.farmerId, farmerName: item.farmer?.name ?? 'Farmer',
+      buyerId: item.buyerId, buyerName: item.buyer?.name ?? 'Buyer', crop: normalizeCropIdentifier(item.listing?.crop ?? item.demand?.crop),
+      quantityQuintals: Number(item.quantityQtl), pricePerQuintal: Number(item.pricePerQtl), totalDealValue: Number(item.totalValue), estimatedCommission: Number(item.commission),
+      status: item.deal?.status === 'COMPLETED' ? 'completed' : item.status === 'ACCEPTED' ? 'confirmed' : String(item.status).toLowerCase() as DealOffer['status'], currentTurnUserId: item.currentTurnId,
+      district: item.listing?.district ?? '', createdAt: item.createdAt, updatedAt: item.updatedAt,
+      history: (item.history ?? []).map((entry: any) => ({ id: entry.id, senderId: entry.senderId, senderName: entry.senderId === item.farmerId ? item.farmer?.name : item.buyer?.name,
+        pricePerQuintal: Number(entry.pricePerQtl), quantityQuintals: Number(entry.quantityQtl), note: entry.note ?? undefined, timestamp: entry.createdAt })),
+      farmerPhone: item.contacts?.farmerPhone, buyerPhone: item.contacts?.buyerPhone,
+      dealId: item.deal?.id,
+    }));
+    set({ listings, demands, offers });
+  },
+  publishBackendListing: async (data) => { await apiRequest('/listings', { method: 'POST', body: JSON.stringify(data) }); await get().refreshBackend(); },
+  publishBackendDemand: async (data) => { await apiRequest('/demands', { method: 'POST', body: JSON.stringify(data) }); await get().refreshBackend(); },
+  cancelBackendListing: async (id) => { await apiRequest(`/listings/${id}`, { method: 'DELETE' }); await get().refreshBackend(); },
+  cancelBackendDemand: async (id) => { await apiRequest(`/demands/${id}`, { method: 'DELETE' }); await get().refreshBackend(); },
+  createBackendOffer: async ({ listingId, demandId, quantity, price, note }) => {
+    await apiRequest('/offers', { method: 'POST', body: JSON.stringify({ listingId, demandId, quantityQtl: quantity, pricePerQtl: price, message: note }) });
+    await get().refreshBackend();
+  },
+  respondBackendOffer: async (offerId, action, values) => {
+    const endpoint = action === 'counter' ? 'counter' : action;
+    const body = action === 'counter' ? { quantityQtl: values?.quantity, pricePerQtl: values?.price } : undefined;
+    await apiRequest(`/offers/${offerId}/${endpoint}`, { method: 'POST', ...(body ? { body: JSON.stringify(body) } : {}) });
+    await get().refreshBackend();
+  },
+  completeBackendDeal: async (offerId) => {
+    const result = await apiRequest<{ offer: any }>(`/offers/${offerId}`);
+    const deal = result.offer?.deal;
+    if (!deal) throw new Error('The confirmed deal could not be found.');
+    await apiRequest(`/deals/${deal.id}/status`, { method: 'PATCH', body: JSON.stringify({ status: 'COMPLETED' }) });
+    await get().refreshBackend();
+  },
+  reviewBackendDeal: async (dealId, rating, comment) => {
+    await apiRequest(`/deals/${dealId}/reviews`, { method: 'POST', body: JSON.stringify({ rating, comment }) });
+  },
 
   addListing: (listingData) => {
     const newListing: HarvestListing = {

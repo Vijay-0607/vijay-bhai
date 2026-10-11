@@ -12,18 +12,14 @@ export const registerSchema = z
     email: z.string().email('Invalid email address').toLowerCase().optional(),
     phone: z
       .string()
-      .regex(/^(\+91[\-\s]?)?[6-9]\d{9}$/, 'Invalid Indian mobile number')
-      .optional(),
+      .regex(/^(\+91[\-\s]?)?[6-9]\d{9}$/, 'Invalid Indian mobile number'),
     password: passwordSchema,
     role: z.enum(['FARMER', 'BUYER', 'FPO']),
     district: z.string().min(1, 'District is required').max(100).trim(),
     preferredLanguage: z.enum(['EN', 'HI', 'KN']).default('EN'),
     profileDescription: z.string().max(500).optional(),
   })
-  .refine((data) => data.email || data.phone, {
-    message: 'At least one of email or phone is required',
-    path: ['email'],
-  });
+  .refine((data) => Boolean(data.phone), { message: 'A phone number is required', path: ['phone'] });
 
 export const loginSchema = z.object({
   identifier: z.string().min(1, 'Email or phone is required'),
@@ -41,7 +37,7 @@ export const otpVerifySchema = z.object({
 
 export const signupOtpRequestSchema = z.object({
   name: z.string().min(2).max(100).trim(),
-  identifier: z.string().trim().min(3).max(254),
+  identifier: z.string().regex(/^(\+91[-\s]?)?[6-9]\d{9}$/, 'A valid Indian mobile number is required'),
   role: z.enum(['FARMER', 'BUYER', 'FPO']),
   district: z.string().min(1).max(100).trim(),
   preferredLanguage: z.enum(['EN', 'HI', 'KN']).default('EN'),

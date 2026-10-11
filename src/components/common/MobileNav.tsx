@@ -1,3 +1,4 @@
+import { translateUi } from '../../locales/translateUi';
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import {
@@ -25,7 +26,7 @@ export const MobileNav: React.FC = () => {
         }
       >
         <LayoutDashboard className="w-5 h-5" />
-        <span>Dashboard</span>
+        <span>{translateUi("Dashboard")}</span>
       </NavLink>
 
       <NavLink
@@ -37,7 +38,7 @@ export const MobileNav: React.FC = () => {
         }
       >
         <Sparkles className="w-5 h-5" />
-        <span>Matches</span>
+        <span>{translateUi("Matches")}</span>
       </NavLink>
 
       <NavLink
@@ -49,7 +50,7 @@ export const MobileNav: React.FC = () => {
         }
       >
         <Sprout className="w-5 h-5" />
-        <span>Sell</span>
+        <span>{translateUi("Sell")}</span>
       </NavLink>
 
       <NavLink
@@ -61,7 +62,7 @@ export const MobileNav: React.FC = () => {
         }
       >
         <ShoppingBag className="w-5 h-5" />
-        <span>Buy</span>
+        <span>{translateUi("Buy")}</span>
       </NavLink>
 
       <NavLink
@@ -73,7 +74,7 @@ export const MobileNav: React.FC = () => {
         }
       >
         <TrendingUp className="w-5 h-5" />
-        <span>Prices</span>
+        <span>{translateUi("Prices")}</span>
       </NavLink>
     </nav>
   );

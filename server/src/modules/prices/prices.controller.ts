@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { prisma } from '../../lib/prisma';
 import { successResponse, errorResponse } from '../../utils/apiResponse';
-import { CreatePriceAlertInput, UpdatePriceAlertInput } from './prices.schema';
+import { CreatePriceAlertInput, UpdatePriceAlertInput, UpsertMandiPriceInput } from './prices.schema';
 import { findActiveCrop, requireActiveCropSlug } from '../crops/crop.service';
 
 // Baseline market data mirroring mandiPrices.ts
@@ -161,6 +161,18 @@ export async function getAllPrices(_req: Request, res: Response): Promise<void> 
     }
   }
   successResponse(res, responseData);
+}
+
+export async function addMandiPrice(req: Request, res: Response): Promise<void> {
+  const input = req.body as UpsertMandiPriceInput;
+  const crop = await requireActiveCropSlug(input.crop);
+  if (!crop) { errorResponse(res, 400, 'UNSUPPORTED_CROP', 'Select an active crop from the catalogue.'); return; }
+  const record = await prisma.priceRecord.create({ data: {
+    crop, market: input.market, district: input.district, pricePerQtl: input.pricePerQtl,
+    minPrice: input.minPrice ?? null, maxPrice: input.maxPrice ?? null, volumeQtl: input.volumeQtl ?? null,
+    recordedAt: input.recordedAt ? new Date(input.recordedAt) : new Date(), sourceType: 'DEMO',
+  } });
+  successResponse(res, { ...record, pricePerQtl: Number(record.pricePerQtl) }, 201);
 }
 
 export async function getPriceByCrop(req: Request, res: Response): Promise<void> {

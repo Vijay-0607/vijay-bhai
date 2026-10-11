@@ -4,8 +4,8 @@
  * unknown = 0.55 (partial score rather than 0 so unsupported pairs still appear)
  */
 export function calculateDistrictFit(dist1: string, dist2: string): number {
-  const d1 = dist1.trim().toLowerCase();
-  const d2 = dist2.trim().toLowerCase();
+  const d1 = dist1.split(',')[0].trim().toLowerCase();
+  const d2 = dist2.split(',')[0].trim().toLowerCase();
 
   if (d1 === d2) return 1.0;
 

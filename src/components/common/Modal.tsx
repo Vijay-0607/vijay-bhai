@@ -1,3 +1,4 @@
+import { translateUi } from '../../locales/translateUi';
 import React, { useEffect } from 'react';
 import { X } from 'lucide-react';
 
@@ -67,7 +68,7 @@ export const Modal: React.FC<ModalProps> = ({
           <button
             onClick={onClose}
             className="p-2 min-h-[44px] min-w-[44px] rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors focus:ring-2 focus:ring-[#1E5E3A] outline-none flex items-center justify-center"
-            aria-label="Close dialog"
+            aria-label={translateUi("Close dialog")}
           >
             <X className="w-5 h-5" />
           </button>
